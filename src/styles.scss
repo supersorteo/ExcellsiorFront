@@ -1,0 +1,242 @@
+/* Estilos globales para la app de Autolavado */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Estilos para formularios oscuros */
+.form-control {
+  //background-color: #1e293b;
+  border-color: #334155;
+  color: #121313;
+}
+
+.form-control:focus {
+  background-color: #1e293b;
+  border-color: #0ea5e9;
+  color: #e2e8f0;
+  box-shadow: 0 0 0 0.2rem rgba(14, 165, 233, 0.25);
+}
+
+.form-select {
+  //background-color: #1e293b;
+  border-color: #334155;
+  color: #121313;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23e2e8f0' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+}
+
+.form-select:focus {
+  background-color: #1e293b;
+  border-color: #0ea5e9;
+  color: #e2e8f0;
+  box-shadow: 0 0 0 0.2rem rgba(14, 165, 233, 0.25);
+}
+
+/* Estilos para modales oscuros */
+.modal-content {
+  background-color: #16213e;
+  border: 1px solid #334155;
+  color: #f1f5f9;
+}
+
+.modal-header {
+  border-bottom-color: #334155;
+}
+
+.modal-footer {
+  border-top-color: #334155;
+}
+
+.btn-close {
+  filter: invert(1);
+}
+
+/* Botones personalizados */
+.btn-primary {
+  background-color: #0ea5e9;
+  border-color: #0ea5e9;
+}
+
+.btn-primary:hover {
+  background-color: #0284c7;
+  border-color: #0284c7;
+}
+
+.btn-success {
+  background-color: #05c880;
+  border-color: #05c880;
+}
+
+.btn-success:hover {
+  background-color: #059669;
+  border-color: #059669;
+}
+
+.btn-danger {
+  background-color: #ef4444;
+  border-color: #ef4444;
+}
+
+.btn-danger:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}
+
+.btn-outline-light {
+  border-color: #64748b;
+  color: #e2e8f0;
+}
+
+.btn-outline-light:hover {
+  background-color: #64748b;
+  border-color: #64748b;
+  color: #ffffff;
+}
+
+.btn-outline-secondary {
+  border-color: #64748b;
+  color: #64748b;
+}
+
+.btn-outline-secondary:hover {
+  background-color: #64748b;
+  border-color: #64748b;
+  color: #ffffff;
+}
+
+/* Tablas oscuras */
+.table-dark {
+  --bs-table-color: #e2e8f0;
+  --bs-table-bg: #0f172a;
+  --bs-table-border-color: #334155;
+  --bs-table-striped-bg: #1e293b;
+  --bs-table-hover-bg: #374151;
+}
+
+/* Progress bars */
+.progress {
+  background-color: #374151;
+}
+
+.progress-bar {
+  background-color: #0ea5e9;
+}
+
+.bg-success {
+  background-color: #059669 !important;
+}
+
+.bg-warning {
+  background-color: #d97706 !important;
+}
+
+.bg-danger {
+  background-color: #dc2626 !important;
+}
+
+/* Badges */
+.badge {
+  font-size: 0.75em;
+}
+
+.bg-secondary {
+  background-color: #64748b !important;
+}
+
+.bg-info {
+  background-color: #0ea5e9 !important;
+}
+
+/* Text colors */
+.text-primary {
+  color: #38bdf8 !important;
+}
+
+.text-success {
+  color: #4ade80 !important;
+}
+
+.text-info {
+  color: #38bdf8 !important;
+}
+
+.text-warning {
+  color: #fbbf24 !important;
+}
+
+.text-danger {
+  color: #f87171 !important;
+}
+
+.text-muted {
+  color: #94a3b8 !important;
+}
+
+.text-secondary {
+  color: #64748b !important;
+}
+
+/* HR dividers */
+hr {
+  border-color: #334155;
+  opacity: 0.3;
+}
+
+/* Form text */
+.form-text {
+  color: #94a3b8;
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #64748b;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Animaciones suaves */
+* {
+  transition: all 0.2s ease-in-out;
+}
+
+.btn {
+  transition: all 0.15s ease-in-out;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+
+  .btn-space {
+    min-width: 100px;
+  }
+}

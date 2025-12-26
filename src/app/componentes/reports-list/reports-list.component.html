@@ -1,0 +1,50 @@
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="h4 mb-0">Lista de Reportes</h2>
+    <button class="btn btn-outline-primary btn-sm" (click)="refreshReports()">Recargar</button>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-dark table-striped">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Fecha</th>
+              <th>Total Espacios</th>
+              <th>Ocupados</th>
+              <th>Libres</th>
+              <th>% Ocupación</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let report of reports">
+              <td>{{report.id}}</td>
+              <td>{{report.timestamp | date:'short'}}</td>
+              <td>{{report.totalSpaces}}</td>
+              <td><span class="badge bg-danger">{{report.occupiedSpaces}}</span></td>
+              <td><span class="badge bg-success">{{report.freeSpaces}}</span></td>
+              <td>
+                <div class="progress" style="height: 20px;">
+                  <div class="progress-bar"
+                       [ngClass]="report.occupancyRate < 50 ? 'bg-success' : report.occupancyRate < 80 ? 'bg-warning' : 'bg-danger'"
+                       [style.width.%]="report.occupancyRate">
+                    {{report.occupancyRate}}%
+                  </div>
+                </div>
+              </td>
+              <td>
+                <button class="btn btn-sm btn-outline-primary me-1" (click)="viewReport(report.id)">Ver</button>
+                <button class="btn btn-sm btn-outline-danger" (click)="deleteReport(report.id)">Eliminar</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div *ngIf="reports.length === 0" class="text-center text-muted py-4">
+        No hay reportes disponibles. <button class="btn btn-sm btn-outline-primary" (click)="refreshReports()">Recargar</button>
+      </div>
+    </div>
+  </div>
+</div>

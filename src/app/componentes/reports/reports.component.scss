@@ -1,0 +1,54 @@
+ .card {
+      background: #0b1220;
+      border: 1px solid #1f2a44;
+    }
+
+
+    .form-label{
+      color: white;
+    }
+
+.card-title{
+  color: white;
+}
+    .stats-card {
+      min-height: 100px;
+      display: flex;
+      align-items: center;
+    }
+    .stats-number {
+      font-size: 2rem;
+      font-weight: bold;
+    }
+    .stats-label {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      margin-top: 0.5rem;
+    }
+    .code-badge {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: #1e293b;
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.25rem;
+      color: #38bdf8;
+    }
+    .time-stat {
+      text-align: center;
+      padding: 1rem;
+    }
+    .time-number {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+    .time-label {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      margin-top: 0.5rem;
+    }
+    .table-dark {
+      --bs-table-bg: #0f172a;
+      --bs-table-striped-bg: #1e293b;
+    }
+    .progress {
+      background-color: #374151;
+    }

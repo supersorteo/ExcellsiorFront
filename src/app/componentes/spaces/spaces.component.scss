@@ -1,0 +1,218 @@
+.grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+     // grid-template-columns: repeat(8, 1fr);
+      gap: 12px;
+    }
+
+
+    .btn-space { min-width: 110px; }
+    .btn-free { background: #05c880; border: none; color: white; }
+    .btn-occ { background: #ef4444; border: none; color: white; }
+    .btn-hold { background: #f59e0b; border: none; color: white; }
+    .elapsed { font-size: .75rem; color: #94a3b8; }
+    .search-hit { outline: 1px dashed #569e70; outline-offset: 3px; }
+    .code-badge {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: #1e293b;
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.25rem;
+      color: #38bdf8;
+    }
+    .tiny {
+      font-size: .8rem;
+      opacity: .9;
+      color: white;
+    }
+
+    .h5{
+      color: white;
+    }
+    .card {
+      background: #0b1220;
+      border: 1px solid #1f2a44;
+    }
+    .modal-dark {
+      background: #16213e;
+      border-radius: 1rem;
+      border: 1px solid #334155;
+      color: #f1f5f9;
+    }
+    .modal-header {
+      border-bottom: 1px solid #334155;
+    }
+    .form-control-dark {
+     // background: #1e293b;
+      background: #6d7b92;
+      color: #121314;
+      border: 1px solid #334155;
+    }
+    .form-control-dark:focus {
+      background: #6d7b92;
+      color: #121314;
+      border-color: #0ea5e9;
+      box-shadow: 0 0 0 0.2rem rgba(14, 165, 233, 0.25);
+    }
+    .client-info {
+      background: #2d446a;
+      border: 1px solid #334155;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-top: 0.5rem;
+    }
+    .client-info label {
+      display: inline-block;
+      min-width: 90px;
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+    .client-info span {
+      color: #e2e8f0;
+    }
+    .client-info .badge {
+      font-size: 0.75rem;
+      vertical-align: middle;
+    }
+    .form-text {
+      color: #94a3b8;
+    }
+
+
+
+
+    .btn-space {
+  min-width: 110px;
+  position: relative;
+  overflow: hidden; // Para contener el icono
+}
+
+.edit-icon {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgb(12 12 12 / 90%);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-space:hover .edit-icon {
+  opacity: 1;
+}
+
+// Visible por defecto en móviles
+@media (max-width: 768px) {
+  .edit-icon {
+    opacity: 1; // Siempre visible en móviles
+  }
+
+  .btn-space:hover .edit-icon {
+    background: rgba(255, 255, 255, 1); // Resaltar al touch/hover en móviles
+  }
+}
+
+
+#qrcode {
+  canvas {
+    display: block !important;
+    max-width: 100%;
+    height: 250px !important; // Altura fija de 250px
+    width: auto !important;
+  }
+}
+
+
+#qrcode,
+#occQRElm {
+  canvas {
+    display: block !important;
+    max-width: 100%;
+    height: 150px !important; // Altura fija de 150px
+    width: auto !important; // Mantiene proporción cuadrada
+  }
+}
+
+:host ::ng-deep canvas{
+  height: 250px !important;
+  width: 250px !important;
+}
+
+
+h2[title] {
+  position: relative;
+}
+
+h2[title]:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #1b2124, #0284c7);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  font-size: 0.7em;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+
+img.rounded-circle:hover {
+  transform: scale(1.05);
+  transition: transform 0.3s ease;
+}
+
+
+
+
+.toast {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+}
+
+.toast-header {
+  background: #16213e;
+  color: #0ea5e9;
+}
+
+
+
+
+
+
+
+
+/* CSS */
+.button-70 {
+  background-image: linear-gradient(#0dccea, #0d70ea);
+  border: 0;
+  border-radius: 4px;
+  box-shadow: rgba(0, 0, 0, .3) 0 5px 15px;
+  box-sizing: border-box;
+  color: #fff;
+  cursor: pointer;
+  font-family: Montserrat,sans-serif;
+  font-size: .9em;
+  margin: 5px;
+  padding: 10px 15px;
+  text-align: center;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}

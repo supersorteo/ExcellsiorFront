@@ -1,0 +1,635 @@
+  <div class="row g-3 align-items-end mb-3">
+
+      <div class="d-flex align-items-center justify-content-between mb-3">
+
+          <img src="../assets/logo/logo_autolvadao.jpg" alt="Logo Autolavado" class="img-fluid" style="max-height: 50px;">
+      <div>
+        <button  class="btn btn-outline-light btn-sm" (click)="resetData()" title="Borrar todo (demo)">Limpiar datos</button>
+      </div>
+    </div>
+
+
+<!--div-- class="position-relative mb-5">
+
+  <img src="../assets/portada/EXELLSSIOR.JPG" alt="Portada Autolavado"
+       class="img-fluid w-100 rounded" style="max-height: 300px; object-fit: cover;">
+
+
+  <img src="../assets/logo/logo_autolvadao.jpg" alt="Logo Autolavado"
+       class="position-absolute rounded-circle border border-white"
+       style="width: 100px; height: 100px; bottom: -50px; left: 30px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">
+
+
+  <div class="position-absolute" style="bottom: 10px; right: 20px;">
+      <button  class="btn btn-outline-light btn-sm" (click)="resetData()" title="Borrar todo (demo)">Limpiar datos</button>
+  </div>
+</!--div-->
+
+
+<!--div-- style="height: 60px;"></!--div-->
+
+<hr>
+
+      <div class="col-12 col-md-4">
+        <div class="input-group">
+          <select class="form-select" [(ngModel)]="currentSubId" (change)="onSubsueloChange()">
+            <option *ngFor="let sub of subsuelos" [value]="sub.id">{{sub.label}}</option>
+          </select>
+          <button class="btn btn-primary" (click)="addSubsuelo()">+ Subsuelo</button>
+          <button class="btn btn-danger" (click)="deleteSubsuelo()">- Subsuelo</button>
+
+        </div>
+        <div class="form-text">Podés crear o eliminar varios subsuelos (SUB1, SUB2, ...).</div>
+
+      </div>
+      <div class="col-12 col-md-4">
+        <!--label-- class="form-label">Agregar espacios al subsuelo actual</!--label-->
+        <div class="input-group">
+          <input type="number" class="form-control" min="1" [(ngModel)]="addSpacesCount" value="5">
+          <button class="btn btn-primary" (click)="addSpaces()">+ Espacios</button>
+          <button class="btn btn-danger" (click)="deleteSpaces()">- Espacios</button>
+        </div>
+
+        <div class="form-text">Los códigos siguen el patrón <span class="code-badge">SUBN-###</span>.</div>
+      </div>
+      <div class="col-12 col-md-4">
+       <div class="input-group">
+            <input class="form-control"
+               placeholder="Nombre del espacio"
+               [(ngModel)]="searchTerm"
+               (input)="onSearch()" />
+       </div>
+
+                <!--label-- class="form-label">Buscar cliente / espacio</!--label-->
+                <div class="form-text">Buscar espacio por nombre</div>
+      </div>
+    </div>
+
+    <!-- Spaces Grid -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <!--h2-- class="h5 m-0">{{currentSubTitle}}</!--h2-->
+        <h2 class="h5 m-0" (click)="editSubsuelo()"
+    style="cursor: pointer; user-select: none;"
+    data-bs-toggle="tooltip"
+    data-bs-placement="top"
+    title="Desea editar el subsuelo?">
+  {{currentSubTitle}}
+</h2>
+
+          <div class="tiny">Click en un espacio libre para cargar cliente. Click en ocupado para ver/gestionar.</div>
+        </div>
+        <hr>
+        <div class="grid">
+          <div *ngFor="let space of filteredSpaces"
+               class="d-flex flex-column align-items-center"
+               [class.search-hit]="isSearchHit(space)">
+            <button class="btn btn-space"
+                    [class.btn-free]="!space.occupied && !space.hold"
+                    [class.btn-occ]="space.occupied"
+                    [class.btn-hold]="space.hold"
+                    (click)="onSpaceClick(space)">
+              {{space.displayName || space.key}}
+              <!--i-- class="bi bi-pencil edit-icon" title="Editar espacio"  ></!--i-->
+              <i class="bi bi-pencil edit-icon" title="Editar espacio" (click)="editSpace(space); $event.stopPropagation()"></i>
+            </button>
+
+            <!--div-- class="elapsed">
+              {{space.occupied ? 'Tiempo: ' + getElapsed(space.startTime) : 'Libre'}}
+            </!--div-->
+
+            <div class="elapsed text-center small">
+  <div *ngIf="space.occupied; else free">
+    <strong>{{getTimeInSpace(space.startTime)}}</strong>
+    <br>
+    <small class="text-muted">{{formatStartTime(space.startTime)}}</small>
+  </div>
+  <ng-template #free>
+    <span class="text-success">Libre</span>
+  </ng-template>
+</div>
+
+
+          </div>
+        </div>
+  <div class="d-flex justify-content-center mt-3" *ngIf="totalPages > 1">
+      <nav aria-label="Paginación de espacios">
+        <ul class="pagination">
+          <li class="page-item" [class.disabled]="currentPage === 1">
+            <button class="page-link" (click)="prevPage()">Anterior</button>
+          </li>
+          <li class="page-item" *ngFor="let page of [].constructor(totalPages); let i = index"
+              [class.active]="currentPage === i + 1">
+            <button class="page-link" (click)="goToPage(i + 1)">{{i + 1}}</button>
+          </li>
+          <li class="page-item" [class.disabled]="currentPage === totalPages">
+            <button class="page-link" (click)="nextPage()">Siguiente</button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+
+      </div>
+    </div>
+
+  <div class="container my-4">
+  <button
+    class="btn btn-outline-primary btn-lg w-100 rounded-3 shadow-sm py-3 fw-semibold"
+    (click)="openClientsAdminModal()">
+    <i class="fas fa-users-cog me-2"></i>
+    Base de datos de Clientes
+  </button>
+</div>
+
+
+
+    <!--button-- class="btn btn-primary btn-lg position-fixed"
+    style="bottom: 20px; right: 20px; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(0,0,0,0.3); z-index: 1050;" onclick="window.open('https://orbitasoftware.site/', '_blank')">
+  <i class="bi bi-box-arrow-up-right" style="font-size: 24px; color: white;"></i>
+</!--button-->
+
+<p class="position-fixed" style="bottom: 20px; right: 20px; z-index: 1050; font-size: 14px;"><strong>Desarrollado por:</strong>
+
+  <a href="https://orbitasoftware.site/" target="_blank" class="text-primary text-decoration-underline">
+    www.orbitasoftware.site
+  </a>
+</p>
+
+
+    <!-- Client Modal -->
+   <div class="modal fade" id="clientModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content modal-dark">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Asignar cliente a <span class="code-badge">{{selectedSpace?.displayName || selectedSpaceKey}}</span>
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="clientForm" class="row g-3">
+
+               <!-- NUEVO CAMPO DNI - AL INICIO -->
+          <div class="col-md-6">
+            <label class="form-label">DNI *</label>
+            <input
+              formControlName="dni"
+              class="form-control form-control-dark"
+              placeholder="Ej: 40123456"
+              pattern="[0-9]{7,8}"
+              required />
+            <div class="form-text">Sin puntos ni espacios</div>
+           <div *ngIf="clientForm.get('dni')?.invalid && clientForm.get('dni')?.touched"
+       class="text-danger small">
+    <span *ngIf="clientForm.get('dni')?.errors?.['required']">
+      El DNI es obligatorio
+    </span>
+    <span *ngIf="clientForm.get('dni')?.errors?.['pattern']">
+      DNI inválido. Debe tener 7 u 8 dígitos
+    </span>
+  </div>
+          </div>
+          <!-- NOMBRE -->
+          <div class="col-md-6">
+            <label class="form-label">Nombre y apellido *</label>
+            <input formControlName="name" class="form-control form-control-dark" required />
+          </div>
+
+
+
+
+
+          <!-- VEHÍCULO -->
+          <div class="col-md-6">
+            <label class="form-label">Tipo de vehículo *</label>
+            <select
+              formControlName="vehicle"
+              class="form-select form-select-lg shadow-sm"
+              style="background: #6d7b92; border: 1px solid #334155; color: #121314;"
+              required
+              (change)="onVehicleSelected($event)">
+              <option value="" disabled selected>Seleccionar vehículo</option>
+
+              <optgroup label="SUV - $40.000">
+                <option *ngFor="let v of vehicles" [value]="v.model" [hidden]="v.category !== 'SUV'">
+                  {{ v.model }}
+                </option>
+              </optgroup>
+
+              <optgroup label="AUTO - $35.000">
+                <option *ngFor="let v of vehicles" [value]="v.model" [hidden]="v.category !== 'AUTO'">
+                  {{ v.model }}
+                </option>
+              </optgroup>
+
+              <optgroup label="PICKUP - $70.000">
+                <option *ngFor="let v of vehicles" [value]="v.model" [hidden]="v.category !== 'PICKUP'">
+                  {{ v.model }}
+                </option>
+              </optgroup>
+
+              <optgroup label="ALTO PORTE - $100.000">
+                <option *ngFor="let v of vehicles" [value]="v.model" [hidden]="v.category !== 'ALTO PORTE'">
+                  {{ v.model }}
+                </option>
+              </optgroup>
+
+              <optgroup label="MOTO - $35.000">
+                <option *ngFor="let v of vehicles" [value]="v.model" [hidden]="v.category !== 'MOTO'">
+                  {{ v.model }}
+                </option>
+              </optgroup>
+            </select>
+            <div class="form-text">Se aplicará el precio según la categoría</div>
+          </div>
+
+          <!-- PRECIO -->
+          <div class="col-md-6">
+            <label class="form-label">Precio del servicio *</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input
+                type="number"
+                formControlName="price"
+                class="form-control form-control-lg shadow-sm"
+                style="background: #6d7b92; border: 1px solid #6d7b92; color: #121314;"
+                min="1"
+                required
+                placeholder="Precio">
+            </div>
+            <div class="form-text">Precio por defecto según vehículo. Puedes modificarlo.</div>
+          </div>
+
+          <!-- MATRÍCULA -->
+          <div class="col-md-6">
+            <label class="form-label">Matrícula / Patente (opcional)</label>
+            <input formControlName="plate" class="form-control form-control-dark"
+                   placeholder="AA123BB / ABC123" />
+          </div>
+
+            <!-- TELÉFONO -->
+          <div class="col-md-6">
+            <label class="form-label">Teléfono (Argentina) *</label>
+            <input
+              formControlName="phone"
+              class="form-control form-control-dark"
+              placeholder="Ej: 1123456789 (sin 0 ni 15)"
+              pattern="[0-9]{8,10}"
+              required />
+            <div class="form-text">Solo números, sin 0 ni 15. Ej: 1123456789</div>
+            <div *ngIf="clientForm.get('phone')?.invalid && clientForm.get('phone')?.touched"
+                 class="text-danger small">
+              Ingresá un teléfono válido (8-10 dígitos)
+            </div>
+          </div>
+
+          <!-- NOTAS -->
+          <div class="col-12">
+            <label class="form-label">Notas (opcional)</label>
+            <input formControlName="notes" class="form-control form-control-dark"
+                   placeholder="Color, observaciones" />
+          </div>
+        </form>
+
+        <hr />
+
+        <div class="row g-3">
+          <div class="col-md-12 d-grid d-md-flex gap-2">
+            <button class="btn btn-primary flex-fill btn-sm d-block d-md-inline-block"
+                    (click)="saveClient()"
+                    [disabled]="clientForm.invalid">
+              Ocupar espacio
+            </button>
+
+            <button *ngIf="whatsappLink" class="btn btn-success flex-fill btn-sm d-block d-md-inline-block"
+                    (click)="openWhatsApp()">
+              WhatsApp
+            </button>
+
+            <button class="btn btn-danger flex-fill btn-sm d-block d-md-inline-block"
+                    (click)="deleteSpace()">
+              Eliminar
+            </button>
+
+            <button class="btn btn-info flex-fill btn-sm d-block d-md-inline-block"
+                    (click)="transferSpace()">
+              Transferir Espacio
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-3" *ngIf="showQR">
+          <div class="border rounded p-3 bg-white text-center">
+            <div id="qrcode"></div>
+            <div class="small text-dark mt-2">{{qrCaption}}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade show" tabindex="-1" [ngClass]="{'d-block': showWhatsAppModal}" style="background-color: rgba(0,0,0,0.5);" *ngIf="showWhatsAppModal">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content modal-dark">
+      <div class="modal-header">
+        <h5 class="modal-title">Mensaje para WhatsApp</h5>
+        <button type="button" class="btn-close btn-close-white" (click)="closeWhatsAppModal()"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Mensaje para enviar:</label>
+        <textarea class="form-control" rows="6" readonly>{{ whatsappMessage }}</textarea>
+
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-outline-primary btn-sm" (click)="copyMessage()">Copiar mensaje</button>
+         <!--a-- [href]="whatsappLink"
+   target="_blank"
+   class="btn btn-success btn-sm"
+   [class.disabled]="!hasCopiedMessage"
+   [attr.aria-disabled]="!hasCopiedMessage"
+   [attr.tabindex]="!hasCopiedMessage ? -1 : null">
+  Abrir WhatsApp
+</!--a-->
+
+<button class="btn btn-success btn-sm"
+        [disabled]="!hasCopiedMessage"
+        (click)="launchWhatsApp()">
+  Abrir WhatsApp
+</button>
+
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+    <!-- Occupied Modal -->
+    <div class="modal fade" id="occupiedModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content modal-dark">
+          <div class="modal-header">
+            <h5 class="modal-title">Espacio <span class="code-badge">{{selectedSpace?.displayName || selectedSpaceKey}}</span></h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div *ngIf="selectedClient" class="client-info">
+              <div class="row g-2 small">
+                <div class="col-md-6">
+                  <label>Cliente:</label>
+                  <span>{{selectedClient.name}}</span>
+                  <span class="badge bg-secondary ms-2">{{selectedClient.code}}</span>
+                </div>
+                <div class="col-md-6">
+                  <label>Teléfono:</label>
+                  <span>+{{selectedClient.phoneIntl}}</span>
+                </div>
+                <div class="col-md-4">
+                  <label>Vehículo:</label>
+                  <span>{{selectedClient.vehicle || '-'}}</span>
+                </div>
+                <div class="col-md-4">
+                  <label>Matrícula:</label>
+                  <span>{{selectedClient.plate || '-'}}</span>
+                </div>
+                <!--div-- class="col-md-4">
+                  <label>Ingreso:</label>
+                  <span>{{getFormattedDate(selectedSpace?.startTime)}}</span>
+                </!--div-->
+
+                <div class="col-md-4">
+              <label>Ingreso:</label>
+              <div>
+                <strong>{{formatStartTime(selectedSpace?.startTime)}}</strong>
+                <br>
+                <small class="text-muted">{{getTimeInSpace(selectedSpace?.startTime)}}</small>
+              </div>
+            </div>
+                <div class="col-12">
+                  <label>Notas:</label>
+                  <span>{{selectedClient.notes || '-'}}</span>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+              <!--a *ngIf="whatsappLink" [href]="whatsappLink" target="_blank" class="btn btn-success">
+                WhatsApp
+              </a-->
+              <button class="btn btn-success" (click)="openWhatsAppModalOccupied()">
+              WhatsApp
+            </button>
+
+              <!--button-- class="btn btn-outline-secondary" (click)="toggleOccupiedQR()">Ver QR</!--button-->
+              <button class="btn btn-danger ms-auto" (click)="releaseSpace()">Liberar espacio</button>
+            </div>
+            <div class="mt-3" *ngIf="showOccupiedQR">
+              <div class="border rounded p-3 bg-white text-center">
+                <div id="occQRElm"></div>
+                <div class="small text-dark mt-2" >{{qrCaption}}</div>
+                <!--button-- class="btn btn-sm btn-outline-dark mt-2" (click)="downloadOccupiedQR()">
+                  Descargar QR
+                </!--button-->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade show" tabindex="-1" [ngClass]="{'d-block': showWhatsAppModalOccupied}" style="background-color: rgba(0,0,0,0.5);" *ngIf="showWhatsAppModalOccupied">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content modal-dark">
+      <div class="modal-header">
+        <h5 class="modal-title">Mensaje para WhatsApp</h5>
+        <button type="button" class="btn-close btn-close-white" (click)="closeWhatsAppModalOccupied()"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Mensaje para enviar:</label>
+        <textarea class="form-control" rows="6" readonly>{{ whatsappMessageOccupied }}</textarea>
+
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-outline-primary btn-sm" (click)="copyMessageOccupied()">Copiar mensaje</button>
+          <button class="btn btn-success btn-sm"  [disabled]="!hasCopiedMessageOccupied" (click)="launchWhatsApp()">Abrir WhatsApp</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<div class="modal fade" id="editSpaceModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content modal-dark">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Espacio</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" *ngIf="editedSpace">
+        <div class="mb-3">
+          <label class="form-label">Clave del Espacio</label>
+          <input type="text" class="form-control form-control-dark" [value]="editedSpace.key" readonly>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Nombre Visible</label>
+          <input type="text" class="form-control form-control-dark" [(ngModel)]="editedSpace.displayName" placeholder="Ej: Parking VIP">
+        </div>
+        <div class="mb-3" *ngIf="editedSpace.client">
+          <label class="form-label">Nombre del Cliente</label>
+          <input type="text" class="form-control form-control-dark" [(ngModel)]="editedSpace.client.name" placeholder="Nombre del cliente">
+        </div>
+        <div class="mb-3" *ngIf="editedSpace.client">
+          <label class="form-label">Teléfono</label>
+          <input type="text" class="form-control form-control-dark" [(ngModel)]="editedSpace.client.phoneIntl" placeholder="+54 9 11 1234 5678">
+        </div>
+        <div class="mb-3" *ngIf="editedSpace.client">
+          <label class="form-label">Notas del Cliente</label>
+          <textarea class="form-control form-control-dark" [(ngModel)]="editedSpace.client.notes" rows="2" placeholder="Notas del cliente"></textarea>
+        </div>
+        <div class="row g-2 mb-3" *ngIf="editedSpace.client">
+          <div class="col-6">
+            <label class="form-label">Vehículo</label>
+            <input type="text" class="form-control form-control-dark" [(ngModel)]="editedSpace.client.vehicle" placeholder="Ej: Toyota Corolla">
+          </div>
+          <div class="col-6">
+            <label class="form-label">Placa</label>
+            <input type="text" class="form-control form-control-dark" [(ngModel)]="editedSpace.client.plate" placeholder="Ej: ABC123">
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary flex-fill" (click)="confirmEditSpace()">Guardar Cambios</button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editSubsueloModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content modal-dark">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar Subsuelo</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" *ngIf="currentSubId">
+        <div class="mb-3">
+          <label class="form-label">Nombre del Subsuelo</label>
+          <input type="text" class="form-control form-control-dark" [(ngModel)]="editedSubsueloLabel" placeholder="Ej: Subsuelo Premium">
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary flex-fill" (click)="confirmEditSubsuelo()">Guardar Cambios</button>
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ADMIN CLIENTES -->
+<div class="modal fade" id="clientsAdminModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content modal-dark">
+      <div class="modal-header border-0">
+        <h5 class="modal-title">
+          <i class="fas fa-users me-2"></i>
+          Administración de Clientes ({{allClients.length}} registrados)
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="table-responsive">
+          <table class="table table-dark table-hover m-0">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>DNI</th>
+                <th>Teléfono</th>
+                <th>Vehículo</th>
+                <th>Matrícula</th>
+                <th>Código</th>
+                <th>Espacio</th>
+                <th>Ingreso</th>
+                <th>Notas</th>
+                <th class="text-center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let client of allClients">
+                <td>{{client.id}}</td>
+                <td>{{client.name}}</td>
+                <td>{{client.dni || '-'}}</td>
+                <td>+{{client.phoneIntl}}</td>
+                <td>{{client.vehicle || '-'}}</td>
+                <td>{{client.plate || '-'}}</td>
+                <td><span class="badge bg-secondary">{{client.code || '-'}}</span></td>
+                <td>{{client.spaceKey || '-'}}</td>
+                <!--td>
+
+      <span *ngIf="getSpaceByKey(client.spaceKey)?.startTime; else noIngreso">
+        <strong>{{formatStartTime(getSpaceByKey(client.spaceKey)?.startTime)}}</strong>
+        <br>
+        <small class="text-muted">{{getTimeInSpace(getSpaceByKey(client.spaceKey)?.startTime)}}</small>
+      </span>
+      <ng-template #noIngreso>
+        <span class="text-muted">-</span>
+      </ng-template>
+    </td-->
+
+    <td>
+  <span *ngIf="getSpaceByKey(client.spaceKey)?.startTime; else noIngreso">
+    {{formatDateOnly(getSpaceByKey(client.spaceKey)?.startTime)}}
+  </span>
+  <ng-template #noIngreso>
+    <span class="text-muted">-</span>
+  </ng-template>
+</td>
+                <td>{{client.notes || '-'}}</td>
+               <td class="text-center">
+  <div class="btn-group" role="group">
+    <button
+      class="btn btn-warning btn-sm me-1"
+      title="Editar"
+      (click)="editClient(client)">
+      <i class="fas fa-edit"></i>
+    </button>
+    <button
+      class="btn btn-danger btn-sm"
+      title="Eliminar"
+      (click)="deleteClient(client.id)">
+      <i class="fas fa-trash"></i>
+    </button>
+  </div>
+</td>
+              </tr>
+            </tbody>
+          </table>
+          <div *ngIf="allClients.length === 0" class="text-center py-5 text-muted">
+            No hay clientes registrados
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast para copia exitosa -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="copyToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="2000">
+    <div class="toast-header">
+      <i class="bi bi-clipboard-check text-success me-2"></i>
+      <strong class="me-auto">Copiado</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body">
+      Mensaje copiado al portapapeles exitosamente.
+    </div>
+  </div>
+</div>
