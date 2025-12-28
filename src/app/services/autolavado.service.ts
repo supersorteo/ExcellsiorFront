@@ -2396,7 +2396,7 @@ generateReportDetailHtml3(report: Report): string {
   `;
 }
 
-generateReportDetailHtml(report: Report): string {
+generateReportDetailHtml4(report: Report): string {
   // Parsear los JSON
   const subsueloStats = JSON.parse(report.subsueloStats || '[]');
   const timeStats = JSON.parse(report.timeStats || '{}');
@@ -2444,6 +2444,8 @@ generateReportDetailHtml(report: Report): string {
     return { ...client, elapsedTime, formattedStart };
   });
 
+
+
   return `
 <!DOCTYPE html>
 <html lang="es">
@@ -2480,6 +2482,226 @@ generateReportDetailHtml(report: Report): string {
     <div class="section">
       <h2>Resumen General</h2>
       <div class="stats">
+        <div class="stat-card">
+          <div class="stat-number">${report.totalSpaces}</div>
+          <div>Total Espacios</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" style="color: #10b981;">${report.occupiedSpaces}</div>
+          <div>Ocupados</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" style="color: #3b82f6;">${report.freeSpaces}</div>
+          <div>Libres</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" style="color: #f59e0b;">${report.occupancyRate}%</div>
+          <div>Ocupación</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detalle por Subsuelo -->
+    <div class="section">
+      <h2>Detalle por Subsuelo</h2>
+      <table class="table table-dark table-striped">
+        <thead>
+          <tr>
+            <th>Subsuelo</th>
+            <th>Total</th>
+            <th>Ocupados</th>
+            <th>Libres</th>
+            <th>% Ocupación</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${subsueloStats.length > 0 ? subsueloStats.map((stat: any) => `
+            <tr>
+              <td>${stat.label}</td>
+              <td>${stat.total}</td>
+              <td><span class="badge bg-danger">${stat.occupied}</span></td>
+              <td><span class="badge bg-success">${stat.free}</span></td>
+              <td>
+                <div class="progress">
+                  <div class="progress-bar bg-${stat.occupancyRate < 50 ? 'success' : stat.occupancyRate < 80 ? 'warning' : 'danger'}" style="width: ${stat.occupancyRate}%">
+                    ${stat.occupancyRate}%
+                  </div>
+                </div>
+              </td>
+            </tr>
+          `).join('') : '<tr><td colspan="5" class="no-data">No hay datos de subsuelos</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Distribución por Tiempo -->
+    <div class="section">
+      <h2>Distribución por Tiempo</h2>
+      <div class="time-stats">
+        <div class="time-card">
+          <div class="time-number" style="color: #10b981;">${timeStats.under1h || 0}</div>
+          <div>Menos de 1h</div>
+        </div>
+        <div class="time-card">
+          <div class="time-number" style="color: #f59e0b;">${timeStats.between1h3h || 0}</div>
+          <div>1h - 3h</div>
+        </div>
+        <div class="time-card">
+          <div class="time-number" style="color: #ef4444;">${timeStats.over3h || 0}</div>
+          <div>Más de 3h</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Servicios del día -->
+    <div class="section">
+      <h2>Servicios del día ${formattedReportDate} (${filteredClients.length})</h2>
+      ${filteredClients.length > 0 ? `
+        <table class="table table-dark table-striped">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Cliente</th>
+              <th>Espacio</th>
+              <th>Teléfono</th>
+              <th>Vehículo</th>
+              <th>Categoría</th>
+              <th>Precio</th>
+              <th>Ingreso</th>
+              <th>Tiempo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredClients.map((client: any) => `
+              <tr>
+                <td><span style="background: #1e293b; padding: 2px 6px; border-radius: 4px; font-family: monospace;">${client.code || '-'}</span></td>
+                <td>${client.name}</td>
+                <td style="color: #3b82f6;">${client.spaceDisplayName || client.spaceKey || '-'}</td>
+                <td>+${client.phoneIntl}</td>
+                <td>${client.vehicle || '-'}</td>
+                <td>
+                  <span class="badge bg-${client.category === 'SUV' ? 'primary' : client.category === 'AUTO' ? 'success' : client.category === 'PICKUP' ? 'warning' : client.category === 'ALTO PORTE' ? 'danger' : 'secondary'}">
+                    ${client.category || 'Sin categoría'}
+                  </span>
+                </td>
+                <td style="color: #10b981; font-weight: bold;">
+                  $${client.price ? client.price.toLocaleString('es-AR') : 'Pendiente'}
+                </td>
+                <td>${client.formattedStart}</td>
+                <td style="color: #f59e0b; font-weight: bold;">${client.elapsedTime}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<div class="no-data">No hay clientes en este reporte</div>'}
+    </div>
+  </div>
+
+  <script>
+    window.onload = function() { window.print(); };
+  </script>
+</body>
+</html>
+  `;
+}
+
+generateReportDetailHtml(report: Report): string {
+  // Parsear los JSON
+  const subsueloStats = JSON.parse(report.subsueloStats || '[]');
+  const timeStats = JSON.parse(report.timeStats || '{}');
+  let filteredClients: any[] = [];
+  try {
+    filteredClients = JSON.parse(report.filteredClients || '[]');
+  } catch (e) {
+    console.error('Error parsing filteredClients', e);
+  }
+
+  // Fecha del reporte (como en tu todayDate())
+  const reportDate = new Date(report.timestamp);
+  const formattedReportDate = reportDate.toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+
+  // Calcular tiempo transcurrido e ingreso bonito
+  const now = Date.now();
+  filteredClients = filteredClients.map((client: any) => {
+    let elapsedTime = 'N/A';
+    let formattedStart = '-';
+
+    if (client.startTime && typeof client.startTime === 'number') {
+      const start = client.startTime;
+      const ms = now - start;
+      const mins = Math.floor(ms / 60000);
+      const hours = Math.floor(mins / 60);
+      const min = mins % 60;
+      elapsedTime = hours > 0 ? `${hours}h ${min}m` : `${min}m`;
+
+      const date = new Date(start);
+      formattedStart = date.toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }) + ' ' + date.toLocaleTimeString('es-AR', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }) + ' hs';
+    }
+
+    return { ...client, elapsedTime, formattedStart };
+  });
+
+  // TOTAL COBRADO DEL DÍA
+  const totalCobrado = filteredClients.reduce((sum: number, client: any) => {
+    return sum + (client.price || 0);
+  }, 0);
+
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detalle Reporte ID ${report.id} - Exellsior</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 20px; }
+    h1 { color: #0ea5e9; text-align: center; }
+    h2 { color: #0ea5e9; margin-bottom: 20px; }
+    .section { margin-bottom: 30px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .stat-card { background: #1e293b; padding: 15px; border-radius: 8px; text-align: center; border-left: 4px solid #0ea5e9; }
+    .stat-number { font-size: 2em; font-weight: bold; color: #0ea5e9; }
+    .total-cobrado { border-left-color: #10b981 !important; }
+    .total-number { color: #10b981 !important; font-size: 2.5em !important; }
+    table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 8px; overflow: hidden; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+    th { background: #16213e; font-weight: bold; color: #0ea5e9; }
+    tr:hover { background: #2d446a; }
+    .progress { background: #374151; border-radius: 4px; height: 20px; overflow: hidden; }
+    .progress-bar { height: 100%; line-height: 20px; text-align: center; font-size: 0.875em; }
+    .time-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+    .time-card { background: #1e293b; padding: 15px; border-radius: 8px; text-align: center; border-left: 4px solid #0ea5e9; }
+    .time-number { font-size: 1.5em; font-weight: bold; }
+    .no-data { text-align: center; color: #94a3b8; padding: 40px; }
+  </style>
+</head>
+<body>
+  <h1>Detalle Reporte ID ${report.id} - ${new Date(report.timestamp).toLocaleString()}</h1>
+
+  <div class="container-fluid px-4">
+    <!-- Resumen General -->
+    <div class="section">
+      <h2>Resumen General</h2>
+      <div class="stats">
+        <!-- TOTAL COBRADO -->
+        <div class="stat-card total-cobrado">
+          <div class="stat-number total-number">$${totalCobrado.toLocaleString('es-AR')}</div>
+          <div>Total Cobrado del Día</div>
+        </div>
+
         <div class="stat-card">
           <div class="stat-number">${report.totalSpaces}</div>
           <div>Total Espacios</div>
