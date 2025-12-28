@@ -31,7 +31,12 @@ export class SpacesComponent implements OnInit, OnDestroy {
   filteredSpaces: Space[] = [];
   searchTerm = '';
   addSpacesCount = 5;
+  isClientsDbOpen = false;
 
+
+  allClients: Client[] = [];
+  searchTermClients = '';
+  filteredClientsAdmin: Client[] = [];
   //editedSpace: any = {}; // Nueva propiedad para datos del espacio editado
   editedSpace: Space | null = null;
   currentPage: number = 1;
@@ -62,7 +67,7 @@ export class SpacesComponent implements OnInit, OnDestroy {
 
 vehicles: VehicleType[] = [];
 existingClientId: any | null = null;
-allClients: Client[] = [];
+horaCierreAutomatico = '23:59';
   constructor(
     private autolavadoService: AutolavadoService,
     private qrService: QrService,
@@ -217,8 +222,40 @@ ngOnInit(): void {
       }
     });
 
+  this.iniciarCierreAutomatico();
 
 
+}
+
+cerrarDiaAutomatico(): void {
+  const hoy = new Date().toLocaleDateString('es-AR');
+  console.log(`Cierre automático del día ${hoy}`);
+
+  // Opcional: sin confirmación (fully automático)
+  this.autolavadoService.resetData().subscribe({
+    next: () => {
+      console.log('Cierre automático completado: todo limpiado');
+      this.filterSpaces();
+      this.cdr.detectChanges();
+      // Opcional: mostrar notificación
+      //alert(`Cierre automático: Día ${hoy} cerrado.\nListo para mañana.`);
+    },
+    error: (err: any) => {
+      console.warn('Error en cierre automático', err);
+    }
+  });
+}
+
+iniciarCierreAutomatico(): void {
+  setInterval(() => {
+    const now = new Date();
+    const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+    if (currentTime === this.horaCierreAutomatico) {
+      console.log(`Hora de cierre automático: ${currentTime}`);
+      this.cerrarDiaAutomatico();
+    }
+  }, 60000); // Cada minuto
 }
 
 // NUEVO MÉTODO: Cargar subsuelos y espacios desde backend si localStorage vacío
@@ -264,7 +301,41 @@ openClientsAdminModal(): void {
   modal.show();
 }
 
-loadAllClientsFromBackend(): void {
+openClientsDb(): void {
+  this.isClientsDbOpen = true;
+  this.loadAllClientsFromBackend();
+}
+
+closeClientsDb(): void {
+  this.isClientsDbOpen = false;
+  this.searchTermClients = '';
+  this.filteredClientsAdmin = [];
+}
+
+
+filterClientsAdmin(): void {
+  if (!this.searchTermClients.trim()) {
+    this.filteredClientsAdmin = this.allClients;
+    return;
+  }
+
+  const term = this.searchTermClients.toLowerCase();
+  this.filteredClientsAdmin = this.allClients.filter(client =>
+    (client.name?.toLowerCase().includes(term)) ||
+    (client.dni?.includes(term)) ||
+    (client.phoneIntl?.includes(term)) ||
+    (client.vehicle?.toLowerCase().includes(term)) ||
+    (client.plate?.toLowerCase().includes(term)) ||
+    (client.code?.toLowerCase().includes(term))
+  );
+}
+
+clearSearchClients(): void {
+  this.searchTermClients = '';
+  this.filteredClientsAdmin = this.allClients;
+}
+
+loadAllClientsFromBackend0(): void {
   this.autolavadoService.getAllClientsFromBackend().subscribe({
     next: (clients) => {
       this.allClients = clients;
@@ -272,6 +343,20 @@ loadAllClientsFromBackend(): void {
     },
     error: (err) => {
       console.error('Error cargando clientes desde backend', err);
+      alert('No se pudieron cargar los clientes');
+    }
+  });
+}
+
+loadAllClientsFromBackend(): void {
+  this.autolavadoService.getAllClientsFromBackend().subscribe({
+    next: (clients) => {
+      this.allClients = clients;
+      this.filteredClientsAdmin = clients;
+      console.log('Todos los clientes cargados desde backend:', clients);
+    },
+    error: (err) => {
+      console.error('Error cargando clientes', err);
       alert('No se pudieron cargar los clientes');
     }
   });
@@ -1095,7 +1180,7 @@ saveClient10(): void {
 }
 
 
-saveClient(): void {
+saveClient11(): void {
   if (this.clientForm.invalid) {
     alert('Por favor completa todos los campos obligatorios.');
     return;
@@ -1180,7 +1265,280 @@ saveClient(): void {
   }
 }
 
+saveClient12(): void {
+  if (this.clientForm.invalid) {
+    alert('Por favor completa todos los campos obligatorios.');
+    return;
+  }
 
+  try {
+    const selectedVehicleModel = this.clientForm.value.vehicle;
+    const selectedVehicle = this.vehicles.find(v => v.model === selectedVehicleModel);
+
+    const category = selectedVehicle?.category || 'AUTO';
+    const price = this.clientForm.value.price || selectedVehicle?.price || 35000;
+
+    // Datos para local
+    const localClientData = {
+      ...this.clientForm.value,
+      category,
+      price
+    };
+
+    // GUARDAR EN LOCAL (genera code, phoneIntl, qrText, tempId)
+    const localClient = this.autolavadoService.saveClient(localClientData, this.selectedSpaceKey);
+    const space = this.spaces[this.selectedSpaceKey];
+
+    // WhatsApp y QR
+    this.whatsappMessage = this.autolavadoService.buildWhatsAppMessage(localClient, space);
+    this.whatsappLink = this.autolavadoService.buildWhatsAppLink(localClient, space);
+
+    this.hasCopiedMessage = false;
+
+    // === DATOS PARA BACKEND ===
+    const payload = {
+      id: this.existingClientId || null,  // ← ID real si el cliente ya existe
+      name: localClient.name,
+      dni: localClient.dni || '',
+      phoneRaw: localClient.phoneRaw,
+      phoneIntl: localClient.phoneIntl,
+      code: localClient.code,
+      vehicle: localClient.vehicle,
+      plate: localClient.plate,
+      notes: localClient.notes,
+      category: localClient.category,
+      price: localClient.price,
+      vehicleType: selectedVehicle ? { id: selectedVehicle.id } : null
+    };
+
+    console.log('Datos enviados al backend (reserve or update):', payload);
+
+    // RESERVAR O ACTUALIZAR EN BACKEND
+    this.autolavadoService.saveClientToBackend({
+      spaceKey: this.selectedSpaceKey,
+      payload: payload
+    }).subscribe({
+      next: (serverClient) => {
+        console.log('Cliente reservado/actualizado en backend:', serverClient);
+
+        // Actualizar cliente local con ID real del backend
+        const tempId = localClient.id;
+        const realId = serverClient.id.toString();
+
+        const clients = this.autolavadoService.clientsSubject.value;
+        if (clients[tempId]) {
+          clients[tempId].id = realId;
+          this.autolavadoService.clientsSubject.next({ ...clients });
+        }
+
+        space.clientId = realId;
+        this.autolavadoService.spacesSubject.next({ ...this.spaces });
+        this.autolavadoService.saveAll();
+
+        console.log('Cliente y espacio actualizados localmente con ID real:', realId);
+      },
+      error: (err) => {
+        console.warn('Error reservando en backend (funciona offline)', err);
+      }
+    });
+
+    alert('Cliente guardado exitosamente!');
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error al guardar cliente: ' + error);
+  }
+}
+
+saveClient000(): void {
+  if (this.clientForm.invalid) {
+    alert('Por favor completa todos los campos obligatorios.');
+    return;
+  }
+
+  try {
+    const selectedVehicleModel = this.clientForm.value.vehicle;
+    const selectedVehicle = this.vehicles.find(v => v.model === selectedVehicleModel);
+
+    const category = selectedVehicle?.category || 'AUTO';
+    const price = this.clientForm.value.price || selectedVehicle?.price || 35000;
+
+    const localClientData = {
+      ...this.clientForm.value,
+      category,
+      price
+    };
+
+    // GUARDAR EN LOCAL
+    const localClient = this.autolavadoService.saveClient(localClientData, this.selectedSpaceKey);
+    const space = this.spaces[this.selectedSpaceKey];
+
+    // WhatsApp y QR
+    this.whatsappMessage = this.autolavadoService.buildWhatsAppMessage(localClient, space);
+    this.whatsappLink = this.autolavadoService.buildWhatsAppLink(localClient, space);
+
+    this.hasCopiedMessage = false;
+
+    // DATOS PARA BACKEND
+    const payload = {
+      id: this.existingClientId || null,
+      name: localClient.name,
+      dni: localClient.dni || '',
+      phoneRaw: localClient.phoneRaw,
+      phoneIntl: localClient.phoneIntl,
+      code: localClient.code,
+      vehicle: localClient.vehicle,
+      plate: localClient.plate,
+      notes: localClient.notes,
+      category: localClient.category,
+      price: localClient.price,
+      vehicleType: selectedVehicle ? { id: selectedVehicle.id } : null
+    };
+
+    console.log('Datos enviados al backend:', payload);
+
+    this.autolavadoService.saveClientToBackend({
+      spaceKey: this.selectedSpaceKey,
+      payload: payload
+    }).subscribe({
+      next: (serverClient) => {
+        console.log('Cliente reservado/actualizado en backend:', serverClient);
+
+        // Actualizar cliente local con ID real
+        const tempId = localClient.id;
+        const realId = serverClient.id.toString();
+
+        const clients = this.autolavadoService.clientsSubject.value;
+        if (clients[tempId]) {
+          clients[tempId].id = realId;
+          this.autolavadoService.clientsSubject.next({ ...clients });
+        }
+
+        space.clientId = realId;
+        this.autolavadoService.spacesSubject.next({ ...this.spaces });
+        this.autolavadoService.saveAll();
+
+        // ← AQUÍ LA CLAVE: RECARGAR ESPACIOS DESDE BACKEND PARA VER CAMBIOS INMEDIATOS
+        this.autolavadoService.loadSpacesFromBackend().subscribe({
+          next: (spacesFromBackend) => {
+            console.log('Espacios recargados desde backend para actualización inmediata');
+
+            const spacesMap: { [key: string]: Space } = {};
+            spacesFromBackend.forEach(s => spacesMap[s.key] = s);
+
+            this.autolavadoService.spacesSubject.next(spacesMap);
+            this.autolavadoService.saveAll();
+
+            // Actualizar grid principal
+            this.filterSpaces();
+            this.cdr.detectChanges();
+
+            console.log('Vista actualizada al instante: espacio anterior liberado visible');
+          }
+        });
+
+        alert('Cliente guardado exitosamente!');
+      },
+      error: (err) => {
+        console.warn('Error reservando en backend (funciona offline)', err);
+      }
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error al guardar cliente: ' + error);
+  }
+}
+
+saveClient(): void {
+  if (this.clientForm.invalid) {
+    alert('Por favor completa todos los campos obligatorios.');
+    return;
+  }
+
+  try {
+    const selectedVehicleModel = this.clientForm.value.vehicle;
+    const selectedVehicle = this.vehicles.find(v => v.model === selectedVehicleModel);
+
+    const category = selectedVehicle?.category || 'AUTO';
+    const price = this.clientForm.value.price || selectedVehicle?.price || 35000;
+
+    const localClientData = {
+      ...this.clientForm.value,
+      category,
+      price
+    };
+
+    // GUARDAR EN LOCAL (genera tempId)
+    const localClient = this.autolavadoService.saveClient(localClientData, this.selectedSpaceKey);
+    const space = this.spaces[this.selectedSpaceKey];
+
+    this.whatsappMessage = this.autolavadoService.buildWhatsAppMessage(localClient, space);
+    this.whatsappLink = this.autolavadoService.buildWhatsAppLink(localClient, space);
+
+    this.hasCopiedMessage = false;
+
+    // DATOS PARA BACKEND
+    const payload = {
+      id: this.existingClientId || null,
+      name: localClient.name,
+      dni: localClient.dni || '',
+      phoneRaw: localClient.phoneRaw,
+      phoneIntl: localClient.phoneIntl,
+      code: localClient.code,
+      vehicle: localClient.vehicle,
+      plate: localClient.plate,
+      notes: localClient.notes,
+      category: localClient.category,
+      price: localClient.price,
+      vehicleType: selectedVehicle ? { id: selectedVehicle.id } : null
+    };
+
+    console.log('Datos enviados al backend:', payload);
+
+    this.autolavadoService.saveClientToBackend({
+      spaceKey: this.selectedSpaceKey,
+      payload: payload
+    }).subscribe({
+      next: (serverClient) => {
+        console.log('Cliente reservado/actualizado en backend:', serverClient);
+
+        const tempId = localClient.id;
+        const realId = serverClient.id.toString();
+
+        const clientsMap = this.autolavadoService.clientsSubject.value;
+
+        // ELIMINAR tempId y GUARDAR con ID real como clave
+        if (clientsMap[tempId]) {
+          const clientToMove = { ...clientsMap[tempId], id: realId };
+          delete clientsMap[tempId];
+          clientsMap[realId] = clientToMove;
+
+          this.autolavadoService.clientsSubject.next({ ...clientsMap });
+          console.log(`Cliente movido de tempId ${tempId} a realId ${realId}`);
+        }
+
+        // Actualizar espacio con ID real
+        space.clientId = realId;
+        this.autolavadoService.spacesSubject.next({ ...this.spaces });
+
+        // Guardar en localStorage con estructura correcta
+        this.autolavadoService.saveAll();
+
+        // Actualizar vista
+        //this.calculateStats();
+        this.filterSpaces();
+        this.cdr.detectChanges();
+
+        alert('Cliente guardado exitosamente!');
+      },
+      error: (err) => {
+        console.warn('Error en backend (funciona offline)', err);
+      }
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error al guardar cliente: ' + error);
+  }
+}
 
 onVehicleSelected(event: Event): void {
   const select = event.target as HTMLSelectElement;
@@ -1386,6 +1744,26 @@ toggleOccupiedQR(): void {
     this.autolavadoService.resetData();
     this.filterSpaces();
     this.cdr.detectChanges();
+  }
+}
+
+cerrarDia(): void {
+  const hoy = new Date().toLocaleDateString('es-AR');
+  if (confirm(`¿Cerrar el día ${hoy}?\n\nEsto hará:\n• Liberar todos los espacios\n• Eliminar todos los clientes del día\n• Limpiar la base de datos\n\n¡No se podrá deshacer!`)) {
+    console.log('Cerrando día y limpiando todo...');
+
+    this.autolavadoService.resetData().subscribe({
+      next: () => {
+        console.log('Día cerrado: todo limpiado local y backend');
+        this.filterSpaces();
+        this.cdr.detectChanges();
+        alert(`Día ${hoy} cerrado correctamente.\nListo para mañana.`);
+      },
+      error: (err: any) => {
+        console.warn('Error cerrando día en backend', err);
+        alert('Cerrado localmente. Se sincronizará cuando haya conexión.');
+      }
+    });
   }
 }
 

@@ -28,7 +28,8 @@ export interface Client {
   spaceKey: string;
   qrText: string;
   category?: string;  // Nueva propiedad opcional
-  price?: number;
+  price?: any;
+  vehicleType?: VehicleType | null;
 }
 
 export interface QRData {

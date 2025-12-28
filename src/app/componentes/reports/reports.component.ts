@@ -23,7 +23,14 @@ export class ReportsComponent implements OnInit, OnDestroy {
   clients: { [key: string]: Client } = {};
   filteredClients: any[] = [];
   searchTerm = '';
-
+  isEditClientOpen = false;
+   editForm = {
+    valor: 0,
+    clave: '',
+    clover: null as number | null,
+    metodoPago: 'efectivo'
+  };
+  editingClient: Client | null = null;
   totalSpaces = 0;
   occupiedSpaces = 0;
   freeSpaces = 0;
@@ -46,6 +53,8 @@ export class ReportsComponent implements OnInit, OnDestroy {
 
 scheduledTime: string = ''; // Hora guardada (ej. "23:30")
 private dailyInterval: any;
+currentPageToday = 1;
+pageSizeToday = 5;
 
   constructor(private autolavadoService: AutolavadoService, private cdr: ChangeDetectorRef, private http: HttpClient) {}
 
@@ -117,6 +126,283 @@ toggleReportsList0(): void {
 }
 
 
+isToday(startTime: number | null): boolean {
+  if (!startTime) return false;
+  const date = new Date(startTime);
+  const today = new Date();
+  return date.getDate() === today.getDate() &&
+         date.getMonth() === today.getMonth() &&
+         date.getFullYear() === today.getFullYear();
+}
+
+get todaysClients(): Client[] {
+  return this.filteredClients.filter(client => {
+    const space = this.spaces[client.spaceKey];
+    return space && space.occupied && this.isToday(space.startTime);
+  });
+}
+
+get paginatedTodaysClients(): Client[] {
+  const start = (this.currentPageToday - 1) * this.pageSizeToday;
+  return this.todaysClients.slice(start, start + this.pageSizeToday);
+}
+
+get totalPagesToday(): number {
+  return Math.ceil(this.todaysClients.length / this.pageSizeToday);
+}
+
+setPageToday(page: number): void {
+  if (page >= 1 && page <= this.totalPagesToday) {
+    this.currentPageToday = page;
+  }
+}
+
+todayDate(): string {
+  return new Date().toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+}
+
+get pageNumbersToday(): number[] {
+  const total = this.totalPagesToday;
+  const current = this.currentPageToday;
+  const maxPages = 5;
+  let start = Math.max(1, current - Math.floor(maxPages / 2));
+  let end = Math.min(total, start + maxPages - 1);
+  if (end - start + 1 < maxPages) {
+    start = Math.max(1, end - maxPages + 1);
+  }
+  const pages: number[] = [];
+  for (let i = start; i <= end; i++) pages.push(i);
+  return pages;
+}
+
+ acceptEditClient0(): void {
+    console.log('Editar cliente:', this.editingClient, this.editForm);
+    this.closeEditClient();
+  }
+
+
+acceptEditClient1(): void {
+  if (!this.editingClient) return;
+
+  const clientId = this.editingClient.id;
+  if (!clientId) {
+    alert('Error: cliente sin ID');
+    return;
+  }
+
+  console.log('Actualizando cliente ID:', clientId);
+
+  // Datos a enviar al backend
+  const updatedData = {
+    name: this.editingClient.name,
+    dni: this.editingClient.dni || '',
+    phoneRaw: this.editingClient.phoneRaw,
+    phoneIntl: this.editingClient.phoneIntl,
+    code: this.editForm.clave || this.editingClient.code,
+    vehicle: this.editingClient.vehicle,
+    plate: this.editingClient.plate,
+    notes: this.editingClient.notes,
+    category: this.editingClient.category,
+    price: this.editForm.valor,
+    spaceKey: this.editingClient.spaceKey,
+    // ← MANTENER vehicleType original (con ID)
+    vehicleType: this.editingClient.vehicleType ? { id: this.editingClient.vehicleType.id } : null
+  };
+
+  console.log('Payload enviado al backend:', updatedData);
+
+  this.autolavadoService.updateClientInBackend(clientId, updatedData).subscribe({
+    next: (updatedClient) => {
+      console.log('Cliente actualizado en backend:', updatedClient);
+
+      // Actualizar cliente local
+      const clientsMap = this.autolavadoService.clientsSubject.value;
+      const clientKey = clientId.toString();
+      if (clientsMap[clientKey]) {
+        clientsMap[clientKey].price = updatedClient.price;
+        clientsMap[clientKey].code = updatedClient.code;
+        // Mantener vehicleType
+        clientsMap[clientKey].vehicleType = updatedClient.vehicleType;
+        this.autolavadoService.clientsSubject.next({ ...clientsMap });
+        this.autolavadoService.saveAll();
+      }
+
+      // Actualizar vista
+      this.calculateStats();
+      //this.filterSpaces();
+      this.cdr.detectChanges();
+
+      alert('Precio y datos actualizados correctamente');
+      this.closeEditClient();
+    },
+    error: (err) => {
+      console.error('Error actualizando cliente', err);
+      alert('Error al actualizar el cliente');
+    }
+  });
+}
+
+acceptEditClient2(): void {
+  if (!this.editingClient) return;
+
+  const clientId = this.editingClient.id;
+  if (!clientId) {
+    alert('Error: cliente sin ID');
+    return;
+  }
+
+  console.log('Editando precio y código del cliente ID:', clientId);
+
+  // Payload mínimo: solo price y code + vehicleType completo para mantenerlo
+  const updatedData = {
+    price: this.editForm.valor,
+    code: this.editForm.clave,
+    // ← MANTENER vehicleType completo con ID
+    vehicleType: this.editingClient.vehicleType ? { id: this.editingClient.vehicleType.id } : null
+  };
+
+  console.log('Payload enviado al backend (solo price, code y vehicleType):', updatedData);
+
+  this.autolavadoService.updateClientInBackend(clientId, updatedData).subscribe({
+    next: (updatedClient) => {
+      console.log('Cliente actualizado en backend:', updatedClient);
+
+      // Actualizar cliente local
+      const clientsMap = this.autolavadoService.clientsSubject.value;
+      const clientKey = clientId.toString();
+      if (clientsMap[clientKey]) {
+        clientsMap[clientKey].price = updatedClient.price;
+        clientsMap[clientKey].code = updatedClient.code;
+        // Mantener vehicleType
+        clientsMap[clientKey].vehicleType = updatedClient.vehicleType;
+        this.autolavadoService.clientsSubject.next({ ...clientsMap });
+        this.autolavadoService.saveAll();
+      }
+
+      // Actualizar tabla "Servicios del día"
+      this.calculateStats();
+      this.cdr.detectChanges();
+
+      alert('Precio y código actualizados correctamente');
+      this.closeEditClient();
+    },
+    error: (err) => {
+      console.error('Error actualizando cliente', err);
+      alert('Error al actualizar el precio');
+    }
+  });
+}
+
+acceptEditClient3(): void {
+  if (!this.editingClient) return;
+
+  const clientId = this.editingClient.id;
+  if (!clientId) {
+    alert('Error: cliente sin ID');
+    return;
+  }
+
+  const updates = {
+    price: this.editForm.valor,
+    code: this.editForm.clave,
+    vehicleType: this.editingClient.vehicleType ? { id: this.editingClient.vehicleType.id } : null
+  };
+
+  console.log('Enviando actualización parcial:', updates);
+
+  this.autolavadoService.updateClientInBackend(clientId, updates).subscribe({
+    next: (updatedClient) => {
+      console.log('Cliente actualizado:', updatedClient);
+
+      // Actualizar local
+      const clientsMap = this.autolavadoService.clientsSubject.value;
+      const clientKey = clientId.toString();
+      if (clientsMap[clientKey]) {
+        clientsMap[clientKey].price = updatedClient.price;
+        clientsMap[clientKey].code = updatedClient.code;
+        this.autolavadoService.clientsSubject.next({ ...clientsMap });
+        this.autolavadoService.saveAll();
+      }
+
+      this.calculateStats();
+      this.cdr.detectChanges();
+
+      alert('Precio actualizado correctamente');
+      this.closeEditClient();
+    },
+    error: (err) => {
+      console.error('Error', err);
+      alert('Error al actualizar');
+    }
+  });
+}
+
+acceptEditClient(): void {
+  if (!this.editingClient) return;
+
+  const clientId = this.editingClient.id;
+  if (!clientId) {
+    alert('Error: cliente sin ID');
+    return;
+  }
+
+  console.log('Actualizando cliente ID:', clientId);
+
+  const updatedData = {
+    name: this.editingClient.name,
+    dni: this.editingClient.dni || '',
+    phoneRaw: this.editingClient.phoneRaw,
+    phoneIntl: this.editingClient.phoneIntl,
+    code: this.editForm.clave || this.editingClient.code,
+    vehicle: this.editingClient.vehicle,
+    plate: this.editingClient.plate,
+    notes: this.editingClient.notes,
+    category: this.editingClient.category,
+    price: this.editForm.valor,
+    spaceKey: this.editingClient.spaceKey,
+    vehicleType: this.editingClient.vehicleType ? { id: this.editingClient.vehicleType.id } : null
+  };
+
+  console.log('Payload enviado al backend:', updatedData);
+
+  this.autolavadoService.updateClientInBackend(clientId, updatedData).subscribe({
+    next: (updatedClient) => {
+      console.log('Cliente actualizado en backend:', updatedClient);
+
+      // Actualizar cliente local
+      const clientsMap = this.autolavadoService.clientsSubject.value;
+      const clientKey = clientId.toString();
+      if (clientsMap[clientKey]) {
+        clientsMap[clientKey].price = updatedClient.price;
+        clientsMap[clientKey].code = updatedClient.code;
+        clientsMap[clientKey].vehicleType = updatedClient.vehicleType;
+        this.autolavadoService.clientsSubject.next({ ...clientsMap });
+        this.autolavadoService.saveAll();
+      }
+
+      // ← LA CLAVE: RECALCULAR filteredClients y todaysClients
+      this.calculateStats();  // Esto actualiza filteredClients y todaysClients
+      this.cdr.detectChanges();  // Fuerza actualización de vista
+
+      alert('Precio actualizado correctamente');
+      this.closeEditClient();
+    },
+    error: (err) => {
+      console.error('Error actualizando cliente', err);
+      alert('Error al actualizar el cliente');
+    }
+  });
+}
+
+    closeEditClient(): void {
+    this.isEditClientOpen = false;
+    this.editingClient = null;
+  }
 
   private calculateStats(): void {
     const spacesArray = Object.values(this.spaces);
@@ -175,6 +461,23 @@ toggleReportsList0(): void {
       }
     });
   }
+
+
+
+
+  openEditClient(client: Client): void {
+  this.editingClient = client;
+  this.editForm = {
+    valor: client.price || 0,
+    clave: client.code || '',
+    clover: null,
+    metodoPago: 'efectivo'
+  };
+  this.isEditClientOpen = true;
+}
+
+
+
 
   getProgressBarClass(rate: number): string {
     if (rate < 50) return 'bg-success';
@@ -366,7 +669,7 @@ private checkAndGenerateDailyReport(): void {
 }
 
 
-generateAndSaveReport(isManual: boolean = false): void {
+generateAndSaveReport0(isManual: boolean = false): void {
   const reportData = {
     timestamp: new Date().toISOString(),
     totalSpaces: this.totalSpaces,
@@ -410,6 +713,143 @@ generateAndSaveReport(isManual: boolean = false): void {
         isManual
           ? 'Reporte manual generado y descargado'
           : 'Reporte diario automático generado y descargado'
+      );
+    },
+    error: (error) => {
+      console.error('Error al generar reporte', error);
+      this.showErrorToast('Error al generar el reporte');
+    }
+  });
+}
+
+
+generateAndSaveReport1(isManual: boolean = false): void {
+  // 1. Filtrar SOLO clientes del día actual (igual que la tabla Servicios del día)
+  const today = new Date().setHours(0, 0, 0, 0); // Inicio del día actual
+  const todaysFilteredClients = this.filteredClients.filter(client => {
+    const space = this.spaces[client.spaceKey];
+    if (!space || !space.occupied || !space.startTime) return false;
+    const startDate = new Date(space.startTime).setHours(0, 0, 0, 0);
+    return startDate === today;
+  });
+
+  console.log('Clientes del día para el reporte:', todaysFilteredClients.length);
+
+  // 2. Preparar datos para el reporte (usa solo los del día)
+  const reportData = {
+    timestamp: new Date().toISOString(),
+    totalSpaces: this.totalSpaces,
+    occupiedSpaces: this.occupiedSpaces,
+    freeSpaces: this.freeSpaces,
+    occupancyRate: this.occupancyRate,
+    subsueloStats: JSON.stringify(this.subsueloStats),
+    timeStats: JSON.stringify(this.timeStats),
+    filteredClients: JSON.stringify(todaysFilteredClients)  // ← SOLO del día
+  };
+
+  console.log('Generando y guardando reporte diario...', reportData);
+
+  this.http.post<Report>(`${this.API_BASE}/reports`, reportData).subscribe({
+    next: (savedReport) => {
+      console.log('Reporte guardado en backend:', savedReport);
+
+      // Generar HTML detallado (usa filteredClients del día)
+      const detailHtml = this.autolavadoService.generateReportDetailHtml({
+        ...reportData,
+        id: savedReport.id,
+        timestamp: savedReport.timestamp,
+        subsueloStats: reportData.subsueloStats,
+        timeStats: reportData.timeStats,
+        filteredClients: reportData.filteredClients  // ← Solo del día
+      } as Report);
+
+      // Descargar automáticamente
+      const blob = new Blob([detailHtml], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reporte_exellsior_${new Date().toISOString().split('T')[0]}_${isManual ? 'manual' : 'automatico'}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      // Toast de éxito
+      this.showSuccessToast(
+        isManual
+          ? 'Reporte manual generado y descargado (solo del día)'
+          : 'Reporte diario automático generado y descargado (solo del día)'
+      );
+    },
+    error: (error) => {
+      console.error('Error al generar reporte', error);
+      this.showErrorToast('Error al generar el reporte');
+    }
+  });
+}
+
+generateAndSaveReport(isManual: boolean = false): void {
+  // 1. Filtrar SOLO clientes del día actual
+  const today = new Date().setHours(0, 0, 0, 0);
+  const todaysFilteredClients = this.filteredClients.filter(client => {
+    const space = this.spaces[client.spaceKey];
+    if (!space || !space.occupied || !space.startTime) return false;
+    const startDate = new Date(space.startTime).setHours(0, 0, 0, 0);
+    return startDate === today;
+  });
+
+  // 2. ENRIQUECER con startTime para el reporte
+  const clientsForReport = todaysFilteredClients.map(client => {
+    const space = this.spaces[client.spaceKey];
+    return {
+      ...client,
+      startTime: space?.startTime || null  // ← AGREGAR startTime
+    };
+  });
+
+  console.log('Clientes del día con startTime para reporte:', clientsForReport.length);
+
+  // 3. Preparar datos para el reporte
+  const reportData = {
+    timestamp: new Date().toISOString(),
+    totalSpaces: this.totalSpaces,
+    occupiedSpaces: this.occupiedSpaces,
+    freeSpaces: this.freeSpaces,
+    occupancyRate: this.occupancyRate,
+    subsueloStats: JSON.stringify(this.subsueloStats),
+    timeStats: JSON.stringify(this.timeStats),
+    filteredClients: JSON.stringify(clientsForReport)  // ← Con startTime
+  };
+
+  console.log('Generando y guardando reporte diario...', reportData);
+
+  this.http.post<Report>(`${this.API_BASE}/reports`, reportData).subscribe({
+    next: (savedReport) => {
+      console.log('Reporte guardado en backend:', savedReport);
+
+      const detailHtml = this.autolavadoService.generateReportDetailHtml({
+        ...reportData,
+        id: savedReport.id,
+        timestamp: savedReport.timestamp,
+        subsueloStats: reportData.subsueloStats,
+        timeStats: reportData.timeStats,
+        filteredClients: reportData.filteredClients
+      } as Report);
+
+      const blob = new Blob([detailHtml], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reporte_exellsior_${new Date().toISOString().split('T')[0]}_${isManual ? 'manual' : 'automatico'}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      this.showSuccessToast(
+        isManual
+          ? 'Reporte manual generado y descargado (solo del día)'
+          : 'Reporte diario automático generado y descargado (solo del día)'
       );
     },
     error: (error) => {

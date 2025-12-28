@@ -4,12 +4,27 @@
      // grid-template-columns: repeat(8, 1fr);
       gap: 12px;
     }
+    input{
+
+      background-color: #090909d8;
+    }
+
 
 
     .btn-space { min-width: 110px; }
-    .btn-free { background: #05c880; border: none; color: white; }
-    .btn-occ { background: #ef4444; border: none; color: white; }
+    .btn-free { padding: 15px;  background: #005c3a; border: none; color: white; }
+    .btn-occ { padding: 15px; background: #760202; border: none; color: white; }
     .btn-hold { background: #f59e0b; border: none; color: white; }
+    .btn-add {
+      background: #0b500c;
+      border-color: #3d423e;
+      color: #ffffff;
+    }
+    .btn-add:hover {
+      background: #059669;
+      border-color: #059669;
+      color: #ffffff;
+    }
     .elapsed { font-size: .75rem; color: #94a3b8; }
     .search-hit { outline: 1px dashed #569e70; outline-offset: 3px; }
     .code-badge {
@@ -29,27 +44,44 @@
       color: white;
     }
     .card {
-      background: #0b1220;
-      border: 1px solid #1f2a44;
+      background: #000000;
+      border: 1px solid #2b2b2b;
     }
     .modal-dark {
-      background: #16213e;
+      background: #0c0e15;
       border-radius: 1rem;
-      border: 1px solid #334155;
+      border: 1px solid #2b2b2b;
       color: #f1f5f9;
     }
+    .input-group {
+      background: #000000;
+    }
+
+    .input-group > .form-control, .input-group > .form-floating, .input-group > .form-select {
+      color: white;
+    }
+    .input-group .form-select {
+      background: #000000;
+      color: #e2e8f0;
+      border-color: #2b2b2b;
+    }
+
+    .form-control::placeholder,
+    .form-control-dark::placeholder {
+      color: #ffffff;
+      opacity: 1;
+    }
     .modal-header {
-      border-bottom: 1px solid #334155;
+      border-bottom: 1px solid #2b2b2b;
     }
     .form-control-dark {
-     // background: #1e293b;
-      background: #6d7b92;
-      color: #121314;
+      background: #070a0f;
+      color: #e2e8f0;
       border: 1px solid #334155;
     }
     .form-control-dark:focus {
-      background: #6d7b92;
-      color: #121314;
+      background: #0d0e0f;
+      color: #e2e8f0;
       border-color: #0ea5e9;
       box-shadow: 0 0 0 0.2rem rgba(14, 165, 233, 0.25);
     }
@@ -200,7 +232,7 @@ img.rounded-circle:hover {
 
 /* CSS */
 .button-70 {
-  background-image: linear-gradient(#0dccea, #0d70ea);
+  background-image: linear-gradient(#0a2349, #071f3d);
   border: 0;
   border-radius: 4px;
   box-shadow: rgba(0, 0, 0, .3) 0 5px 15px;
@@ -215,4 +247,51 @@ img.rounded-circle:hover {
   user-select: none;
   -webkit-user-select: none;
   touch-action: manipulation;
+}
+
+
+.fullscreen-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fullscreen-modal__backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+}
+
+.fullscreen-modal__content {
+  width: 95%;
+  height: 95%;
+  max-width: none;
+  background: #1e1e1e;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.clientes-db-modal__body {
+  flex: 1;
+  overflow: auto;
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  background: #f8f9fa;
+  z-index: 10;
 }
