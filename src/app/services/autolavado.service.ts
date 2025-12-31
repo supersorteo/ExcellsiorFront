@@ -70,7 +70,8 @@ export class AutolavadoService {
 
 
 
-   private API_BASE = 'http://localhost:8080/api'
+   //private API_BASE = 'http://localhost:8080/api'
+   private API_BASE = 'https://excellsiorback-production.up.railway.app/api'
    //private API_BASE = 'https://talented-connection-production.up.railway.app/api'
 
   // Observables públicos

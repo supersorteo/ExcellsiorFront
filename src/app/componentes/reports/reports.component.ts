@@ -47,8 +47,8 @@ export class ReportsComponent implements OnInit, OnDestroy {
   currentPage = 1;
   currentClients!: Client[];
 
-  private API_BASE = 'http://localhost:8080/api'
-  //private API_BASE = 'https://talented-connection-production.up.railway.app/api'
+  //private API_BASE = 'http://localhost:8080/api'
+  private API_BASE = 'https://excellsiorback-production.up.railway.app/api'
   showReportsList = false;
 
 scheduledTime: string = ''; // Hora guardada (ej. "23:30")
