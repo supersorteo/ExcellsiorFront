@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, combineLatest, forkJoin, Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, switchMap, tap } from 'rxjs/operators';
 import { Report, VehicleType } from '../models/autolavado.model';
 
 // Interfaces
@@ -37,6 +37,8 @@ export interface Client {
   category?: string;  // Nueva propiedad opcional
   price?: number;
   vehicleType?: VehicleType | null;
+  paymentMethod?: string;  // ← NUEVO
+  clover?: number | null;
 }
 
 export interface ClientData {
@@ -72,7 +74,7 @@ export class AutolavadoService {
 
    //private API_BASE = 'http://localhost:8080/api'
    private API_BASE = 'https://excellsiorback-production.up.railway.app/api'
-   //private API_BASE = 'https://talented-connection-production.up.railway.app/api'
+
 
   // Observables públicos
   public subsuelos$ = this.subsuelosSubject.asObservable();
@@ -248,6 +250,37 @@ saveClientToBackend(data: { spaceKey: string; payload: any }): Observable<Client
   return this.http.post<Client>(`${this.API_BASE}/clients/spaces/${spaceKey}/reserve`, payload);
 }
 
+initializeDataFromBackend(): void {
+  console.log('Inicializando datos desde backend...');
+
+  // Cargar espacios
+  this.loadSpacesFromBackend().subscribe({
+    next: (spacesFromBackend: Space[]) => {
+      const spacesMap: { [key: string]: Space } = {};
+      spacesFromBackend.forEach(s => spacesMap[s.key] = s);
+      this.spacesSubject.next(spacesMap);
+
+      // Cargar clientes
+      this.loadClientsFromBackend().subscribe({
+        next: (clientsFromBackend: Client[]) => {
+          const clientsMap: { [key: string]: Client } = {};
+          clientsFromBackend.forEach(c => clientsMap[c.id.toString()] = c);
+          this.clientsSubject.next(clientsMap);
+
+          // Guardar en localStorage los datos REALES del backend
+          this.saveAll();
+
+          console.log('Datos inicializados desde backend y localStorage actualizado');
+          console.log('Espacios:', Object.keys(spacesMap).length);
+          console.log('Clientes:', Object.keys(clientsMap).length);
+        },
+        error: (err) => console.warn('Error cargando clientes desde backend', err)
+      });
+    },
+    error: (err) => console.warn('Error cargando espacios desde backend', err)
+  });
+}
+
 reserveOrUpdateClient(data: {
   spaceKey: string;
   payload: any;
@@ -314,6 +347,10 @@ getClientFromBackend(clientId: number | string): Observable<Client> {
   return this.http.get<Client>(`${this.API_BASE}/clients/${clientId}`);
 }
 
+loadClientsFromBackend(): Observable<Client[]> {
+  return this.http.get<Client[]>(`${this.API_BASE}/clients`);
+}
+
 transferSpaceInBackend(spaceKey: string, newSubsueloId: string): Observable<Space> {
   const payload = { newSubsueloId };
   return this.http.put<Space>(`${this.API_BASE}/spaces/${spaceKey}/transfer`, payload);
@@ -327,8 +364,40 @@ getAllClientsFromBackend(): Observable<Client[]> {
   return this.http.get<Client[]>(`${this.API_BASE}/clients`);
 }
 
-deleteClientFromBackend(clientId: number): Observable<void> {
+deleteClientFromBackend0(clientId: number): Observable<void> {
   return this.http.delete<void>(`${this.API_BASE}/clients/${clientId}`);
+}
+
+deleteClientFromBackend(clientId: number): Observable<any> {
+  console.log('Eliminando cliente ID:', clientId, 'del backend');
+
+  return this.http.delete<void>(`${this.API_BASE}/clients/${clientId}`).pipe(
+    switchMap(() => {
+      console.log('Cliente eliminado en backend. Recargando datos frescos...');
+
+      // Recargar espacios desde backend (para que el espacio liberado aparezca libre)
+      return this.loadSpacesFromBackend().pipe(
+        switchMap((spacesFromBackend: Space[]) => {
+          const spacesMap: { [key: string]: Space } = {};
+          spacesFromBackend.forEach(s => spacesMap[s.key] = s);
+          this.spacesSubject.next(spacesMap);
+
+          // Recargar clientes desde backend (para eliminar el cliente borrado)
+          return this.loadClientsFromBackend();
+        }),
+        tap((clientsFromBackend: Client[]) => {
+          const clientsMap: { [key: string]: Client } = {};
+          clientsFromBackend.forEach(c => clientsMap[c.id.toString()] = c);
+          this.clientsSubject.next(clientsMap);
+
+          // Guardar en localStorage los datos REALES del backend
+          this.saveAll();
+
+          console.log('localStorage actualizado: cliente eliminado y espacio liberado');
+        })
+      );
+    })
+  );
 }
 
 
@@ -890,7 +959,7 @@ releaseSpace0(spaceKey: string): void {
 }
 
 
-releaseSpace(spaceKey: string): void {
+releaseSpace1(spaceKey: string): void {
   const spaces = this.spacesSubject.value;
   const clients = this.clientsSubject.value;
   const space = spaces[spaceKey];
@@ -918,6 +987,72 @@ releaseSpace(spaceKey: string): void {
     next: () => console.log('Espacio liberado en backend'),
     error: (err) => console.warn('Error liberando en backend (funciona offline)', err)
   });
+}
+
+releaseSpace(spaceKey: string): Observable<any> {
+  const spaces = this.spacesSubject.value;
+  const clients = this.clientsSubject.value;
+  const space = spaces[spaceKey];
+
+  if (!space) {
+    console.warn('Espacio no encontrado:', spaceKey);
+    return of(null);
+  }
+
+  const clientId = space.clientId;
+
+  // 1. Liberar localmente
+  if (clientId) {
+    delete clients[clientId];
+    this.clientsSubject.next({ ...clients });
+  }
+
+  space.occupied = false;
+  space.clientId = null;
+  space.startTime = null;
+  space.hold = false;
+  space.client = null;
+
+  this.spacesSubject.next({ ...spaces });
+  this.saveAll();  // Guarda estado liberado temporalmente
+
+  console.log('Espacio liberado localmente:', spaceKey);
+
+  // 2. Liberar en backend
+  return this.releaseSpaceInBackend(spaceKey).pipe(
+    switchMap(() => {
+      console.log('Espacio liberado en backend. Recargando datos frescos...');
+
+      if (clientId) {
+        // Recargar el cliente actualizado desde backend
+        return this.getClientFromBackend(clientId).pipe(
+          tap((updatedClient: Client) => {
+            // Actualizar cliente en el mapa (con datos limpios del backend)
+            const updatedClientsMap = this.clientsSubject.value;
+            updatedClientsMap[updatedClient.id.toString()] = updatedClient;
+            this.clientsSubject.next({ ...updatedClientsMap });
+            console.log('Cliente recargado y actualizado en local:', updatedClient);
+          })
+        );
+      } else {
+        return of(null);  // No había cliente
+      }
+    }),
+    tap(() => {
+      // Recargar espacios desde backend para máxima consistencia
+      return this.loadSpacesFromBackend().pipe(
+        tap((spacesFromBackend: Space[]) => {
+          const spacesMap: { [key: string]: Space } = {};
+          spacesFromBackend.forEach(s => spacesMap[s.key] = s);
+          this.spacesSubject.next(spacesMap);
+        })
+      ).subscribe();
+    }),
+    tap(() => {
+      this.saveAll();  // Guardar en localStorage los datos REALES del backend
+      console.log('localStorage actualizado con datos frescos después de liberar espacio');
+    })
+  );
 }
 
 
@@ -974,7 +1109,7 @@ resetData1(): void {
   });
 }
 
-resetData(): any {
+resetData2(): any {
   const spaces = this.spacesSubject.value;
 
   console.log('Limpiando datos localmente...');
@@ -999,6 +1134,59 @@ resetData(): any {
     next: () => console.log('Todo limpiado en backend'),
     error: (err) => console.warn('Error limpiando backend (funciona offline)', err)
   });
+}
+
+resetData(): Observable<any> {
+  const spaces = this.spacesSubject.value;
+
+  console.log('Cerrando día: liberando espacios localmente...');
+
+  // 1. Liberar espacios localmente
+  Object.values(spaces).forEach(space => {
+    space.occupied = false;
+    space.clientId = null;
+    space.startTime = null;
+    space.hold = false;
+    space.client = null;
+  });
+
+  this.spacesSubject.next({ ...spaces });
+
+  // 2. Limpiar clientes locales (tabla queda vacía)
+  this.clientsSubject.next({});
+
+  this.saveAll();  // Guarda estado limpio en localStorage temporalmente
+
+  console.log('Espacios liberados y clientes limpiados localmente');
+
+  // 3. Liberar en backend y recargar TODO
+  return this.resetDataInBackend().pipe(
+    switchMap(() => {
+      console.log('Backend confirmado. Recargando espacios y clientes frescos...');
+
+      // Recargar espacios
+      return this.loadSpacesFromBackend().pipe(
+        switchMap((spacesFromBackend: Space[]) => {
+          const spacesMap: { [key: string]: Space } = {};
+          spacesFromBackend.forEach(s => spacesMap[s.key] = s);
+          this.spacesSubject.next(spacesMap);
+
+          // Recargar clientes
+          return this.loadClientsFromBackend();
+        }),
+        tap((clientsFromBackend: Client[]) => {
+          const clientsMap: { [key: string]: Client } = {};
+          clientsFromBackend.forEach(c => clientsMap[c.id.toString()] = c);
+          this.clientsSubject.next(clientsMap);
+
+          // Guardar en localStorage los datos REALES del backend
+          this.saveAll();
+
+          console.log('localStorage actualizado con datos frescos del backend (espacios libres + clientes históricos)');
+        })
+      );
+    })
+  );
 }
 
   // Gestión de búsqueda
@@ -2788,6 +2976,8 @@ generateReportDetailHtml(report: Report): string {
               <th>Vehículo</th>
               <th>Categoría</th>
               <th>Precio</th>
+              <th>Método Pago</th>
+              <th>Clover</th>
               <th>Ingreso</th>
               <th>Tiempo</th>
             </tr>
@@ -2807,6 +2997,12 @@ generateReportDetailHtml(report: Report): string {
                 </td>
                 <td style="color: #10b981; font-weight: bold;">
                   $${client.price ? client.price.toLocaleString('es-AR') : 'Pendiente'}
+                </td>
+                <td>
+                  <span class="badge bg-light text-dark">${client.paymentMethod || '-'}</span>
+                </td>
+                <td>
+                  <strong>${client.clover ? client.clover.toString().padStart(4, '0') : '-'}</strong>
                 </td>
                 <td>${client.formattedStart}</td>
                 <td style="color: #f59e0b; font-weight: bold;">${client.elapsedTime}</td>

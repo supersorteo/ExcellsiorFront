@@ -24,12 +24,27 @@ export class ReportsComponent implements OnInit, OnDestroy {
   filteredClients: any[] = [];
   searchTerm = '';
   isEditClientOpen = false;
-   editForm = {
+
+  editForm1 = {
     valor: 0,
     clave: '',
     clover: null as number | null,
     metodoPago: 'efectivo'
   };
+
+
+  editForm: {
+  valor: number;
+  clave: string;
+ // clover: number | null;
+  clover: string;
+  metodoPago: 'efectivo' | 'credito' | 'prepago';
+} = {
+  valor: 0,
+  clave: '',
+  clover: '',
+  metodoPago: 'efectivo'
+};
   editingClient: Client | null = null;
   totalSpaces = 0;
   occupiedSpaces = 0;
@@ -180,169 +195,12 @@ get pageNumbersToday(): number[] {
   return pages;
 }
 
- acceptEditClient0(): void {
-    console.log('Editar cliente:', this.editingClient, this.editForm);
-    this.closeEditClient();
-  }
 
 
-acceptEditClient1(): void {
-  if (!this.editingClient) return;
 
-  const clientId = this.editingClient.id;
-  if (!clientId) {
-    alert('Error: cliente sin ID');
-    return;
-  }
 
-  console.log('Actualizando cliente ID:', clientId);
 
-  // Datos a enviar al backend
-  const updatedData = {
-    name: this.editingClient.name,
-    dni: this.editingClient.dni || '',
-    phoneRaw: this.editingClient.phoneRaw,
-    phoneIntl: this.editingClient.phoneIntl,
-    code: this.editForm.clave || this.editingClient.code,
-    vehicle: this.editingClient.vehicle,
-    plate: this.editingClient.plate,
-    notes: this.editingClient.notes,
-    category: this.editingClient.category,
-    price: this.editForm.valor,
-    spaceKey: this.editingClient.spaceKey,
-    // ← MANTENER vehicleType original (con ID)
-    vehicleType: this.editingClient.vehicleType ? { id: this.editingClient.vehicleType.id } : null
-  };
-
-  console.log('Payload enviado al backend:', updatedData);
-
-  this.autolavadoService.updateClientInBackend(clientId, updatedData).subscribe({
-    next: (updatedClient) => {
-      console.log('Cliente actualizado en backend:', updatedClient);
-
-      // Actualizar cliente local
-      const clientsMap = this.autolavadoService.clientsSubject.value;
-      const clientKey = clientId.toString();
-      if (clientsMap[clientKey]) {
-        clientsMap[clientKey].price = updatedClient.price;
-        clientsMap[clientKey].code = updatedClient.code;
-        // Mantener vehicleType
-        clientsMap[clientKey].vehicleType = updatedClient.vehicleType;
-        this.autolavadoService.clientsSubject.next({ ...clientsMap });
-        this.autolavadoService.saveAll();
-      }
-
-      // Actualizar vista
-      this.calculateStats();
-      //this.filterSpaces();
-      this.cdr.detectChanges();
-
-      alert('Precio y datos actualizados correctamente');
-      this.closeEditClient();
-    },
-    error: (err) => {
-      console.error('Error actualizando cliente', err);
-      alert('Error al actualizar el cliente');
-    }
-  });
-}
-
-acceptEditClient2(): void {
-  if (!this.editingClient) return;
-
-  const clientId = this.editingClient.id;
-  if (!clientId) {
-    alert('Error: cliente sin ID');
-    return;
-  }
-
-  console.log('Editando precio y código del cliente ID:', clientId);
-
-  // Payload mínimo: solo price y code + vehicleType completo para mantenerlo
-  const updatedData = {
-    price: this.editForm.valor,
-    code: this.editForm.clave,
-    // ← MANTENER vehicleType completo con ID
-    vehicleType: this.editingClient.vehicleType ? { id: this.editingClient.vehicleType.id } : null
-  };
-
-  console.log('Payload enviado al backend (solo price, code y vehicleType):', updatedData);
-
-  this.autolavadoService.updateClientInBackend(clientId, updatedData).subscribe({
-    next: (updatedClient) => {
-      console.log('Cliente actualizado en backend:', updatedClient);
-
-      // Actualizar cliente local
-      const clientsMap = this.autolavadoService.clientsSubject.value;
-      const clientKey = clientId.toString();
-      if (clientsMap[clientKey]) {
-        clientsMap[clientKey].price = updatedClient.price;
-        clientsMap[clientKey].code = updatedClient.code;
-        // Mantener vehicleType
-        clientsMap[clientKey].vehicleType = updatedClient.vehicleType;
-        this.autolavadoService.clientsSubject.next({ ...clientsMap });
-        this.autolavadoService.saveAll();
-      }
-
-      // Actualizar tabla "Servicios del día"
-      this.calculateStats();
-      this.cdr.detectChanges();
-
-      alert('Precio y código actualizados correctamente');
-      this.closeEditClient();
-    },
-    error: (err) => {
-      console.error('Error actualizando cliente', err);
-      alert('Error al actualizar el precio');
-    }
-  });
-}
-
-acceptEditClient3(): void {
-  if (!this.editingClient) return;
-
-  const clientId = this.editingClient.id;
-  if (!clientId) {
-    alert('Error: cliente sin ID');
-    return;
-  }
-
-  const updates = {
-    price: this.editForm.valor,
-    code: this.editForm.clave,
-    vehicleType: this.editingClient.vehicleType ? { id: this.editingClient.vehicleType.id } : null
-  };
-
-  console.log('Enviando actualización parcial:', updates);
-
-  this.autolavadoService.updateClientInBackend(clientId, updates).subscribe({
-    next: (updatedClient) => {
-      console.log('Cliente actualizado:', updatedClient);
-
-      // Actualizar local
-      const clientsMap = this.autolavadoService.clientsSubject.value;
-      const clientKey = clientId.toString();
-      if (clientsMap[clientKey]) {
-        clientsMap[clientKey].price = updatedClient.price;
-        clientsMap[clientKey].code = updatedClient.code;
-        this.autolavadoService.clientsSubject.next({ ...clientsMap });
-        this.autolavadoService.saveAll();
-      }
-
-      this.calculateStats();
-      this.cdr.detectChanges();
-
-      alert('Precio actualizado correctamente');
-      this.closeEditClient();
-    },
-    error: (err) => {
-      console.error('Error', err);
-      alert('Error al actualizar');
-    }
-  });
-}
-
-acceptEditClient(): void {
+acceptEditClient0(): void {
   if (!this.editingClient) return;
 
   const clientId = this.editingClient.id;
@@ -399,10 +257,136 @@ acceptEditClient(): void {
   });
 }
 
-    closeEditClient(): void {
+
+acceptEditClient1(): void {
+  if (!this.editingClient) return;
+
+  const clientId = this.editingClient.id;
+  if (!clientId) {
+    alert('Error: cliente sin ID');
+    return;
+  }
+
+  const updatedData = {
+    price: this.editForm.valor,
+    code: this.editForm.clave,
+    paymentMethod: this.editForm.metodoPago,
+    clover: this.editForm.clover,
+    vehicleType: this.editingClient.vehicleType ? { id: this.editingClient.vehicleType.id } : null
+  };
+
+  console.log('Payload enviado al backend:', updatedData);
+
+  this.autolavadoService.updateClientInBackend(clientId, updatedData).subscribe({
+    next: (updatedClient) => {
+      console.log('Cliente actualizado:', updatedClient);
+
+      const clientsMap = this.autolavadoService.clientsSubject.value;
+      const clientKey = clientId.toString();
+      if (clientsMap[clientKey]) {
+        clientsMap[clientKey].price = updatedClient.price;
+        clientsMap[clientKey].code = updatedClient.code;
+        clientsMap[clientKey].paymentMethod = updatedClient.paymentMethod;
+        clientsMap[clientKey].clover = updatedClient.clover;
+        this.autolavadoService.clientsSubject.next({ ...clientsMap });
+        this.autolavadoService.saveAll();
+      }
+
+      this.calculateStats();
+      this.cdr.detectChanges();
+
+      alert('Datos actualizados correctamente');
+      this.closeEditClient();
+    },
+    error: (err) => {
+      console.error('Error', err);
+      alert('Error al actualizar');
+    }
+  });
+}
+
+acceptEditClient(): void {
+
+  console.log('Botón Guardar cambios pulsado');
+  if (!this.editingClient)
+    return;
+
+  const clientId = this.editingClient.id;
+  if (!clientId) {
+    alert('Error: cliente sin ID');
+    return;
+  }
+
+  // Validación de Clover: exactamente 4 dígitos
+  if (this.editForm.clover && !/^\d{4}$/.test(this.editForm.clover)) {
+    alert('El código Clover debe tener exactamente 4 dígitos numéricos');
+    return;
+  }
+
+  const updatedData = {
+    price: this.editForm.valor,
+    code: this.editForm.clave || null,
+    clover: this.editForm.clover ? parseInt(this.editForm.clover, 10) : null,
+    paymentMethod: this.editForm.metodoPago,
+    vehicleType: this.editingClient.vehicleType ? { id: this.editingClient.vehicleType.id } : null
+  };
+
+  console.log('Payload enviado al backend:', updatedData);
+
+  this.autolavadoService.updateClientInBackend(clientId, updatedData).subscribe({
+    next: (updatedClient) => {
+      console.log('Cliente actualizado:', updatedClient);
+
+      const clientsMap = this.autolavadoService.clientsSubject.value;
+      const clientKey = clientId.toString();
+      if (clientsMap[clientKey]) {
+        clientsMap[clientKey].price = updatedClient.price;
+        clientsMap[clientKey].code = updatedClient.code;
+        clientsMap[clientKey].paymentMethod = updatedClient.paymentMethod;
+        clientsMap[clientKey].clover = updatedClient.clover;
+        this.autolavadoService.clientsSubject.next({ ...clientsMap });
+        this.autolavadoService.saveAll();
+      }
+
+      this.calculateStats();
+      this.cdr.detectChanges();
+
+      alert('Datos actualizados correctamente');
+      this.closeEditClient();
+    },
+    error: (err) => {
+      console.error('Error', err);
+      alert('Error al actualizar');
+    }
+  });
+
+
+}
+
+
+isCloverInvalid(): boolean {
+  const clover = this.editForm.clover;
+  if (!clover) return false;
+  return clover.toString().length !== 4 || !/^\d{4}$/.test(clover.toString());
+}
+
+    closeEditClient0(): void {
     this.isEditClientOpen = false;
     this.editingClient = null;
   }
+
+  closeEditClient(): void {
+  this.isEditClientOpen = false;
+  this.editingClient = null;
+
+  // Reset limpio
+  this.editForm = {
+    valor: 0,
+    clave: '',
+    clover: '',
+    metodoPago: 'efectivo'
+  };
+}
 
   private calculateStats(): void {
     const spacesArray = Object.values(this.spaces);
@@ -465,17 +449,35 @@ acceptEditClient(): void {
 
 
 
-  openEditClient(client: Client): void {
+
+
+
+
+/*openEditClient(client: Client): void {
   this.editingClient = client;
+
   this.editForm = {
     valor: client.price || 0,
     clave: client.code || '',
-    clover: null,
-    metodoPago: 'efectivo'
+    clover: client.clover ?? null,
+    metodoPago: (client.paymentMethod as 'efectivo' | 'credito' | 'prepago') || 'efectivo'
   };
+
+  this.isEditClientOpen = true;
+}*/
+
+openEditClient(client: Client): void {
+  this.editingClient = client;
+
+  this.editForm = {
+    valor: client.price || 0,
+    clave: client.code || '',
+    clover: client.clover ? client.clover.toString().padStart(4, '0') : '',
+    metodoPago: (client.paymentMethod as 'efectivo' | 'credito' | 'prepago') || 'efectivo'
+  };
+
   this.isEditClientOpen = true;
 }
-
 
 
 

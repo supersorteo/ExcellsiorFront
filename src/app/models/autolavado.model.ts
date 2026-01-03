@@ -30,6 +30,8 @@ export interface Client {
   category?: string;  // Nueva propiedad opcional
   price?: any;
   vehicleType?: VehicleType | null;
+  paymentMethod?: string;  // ← NUEVO
+  clover?: number | null;
 }
 
 export interface QRData {
