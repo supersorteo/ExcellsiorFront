@@ -62,6 +62,7 @@ export class SpacesComponent implements OnInit, OnDestroy {
 
   showWhatsAppModalOccupied = false;
   whatsappMessageOccupied = '';
+  whatsappMessageOccupied0 = '';
   hasCopiedMessageOccupied = false;
 
 
@@ -222,77 +223,75 @@ ngOnInit(): void {
       }
     });
 
-  this.iniciarCierreAutomatico();
-
-
-}
-
-cerrarDiaAutomatico(): void {
-  const hoy = new Date().toLocaleDateString('es-AR');
-  console.log(`Cierre automático del día ${hoy}`);
-
-  // Opcional: sin confirmación (fully automático)
-  this.autolavadoService.resetData().subscribe({
-    next: () => {
-      console.log('Cierre automático completado: todo limpiado');
-      this.filterSpaces();
-      this.cdr.detectChanges();
-      // Opcional: mostrar notificación
-      //alert(`Cierre automático: Día ${hoy} cerrado.\nListo para mañana.`);
-    },
-    error: (err: any) => {
-      console.warn('Error en cierre automático', err);
-    }
+ this.limpiarEspaciosDeDiasAnteriores();
+// NUEVO: Mantener allClients y filteredClientsAdmin sincronizados con el servicio
+  this.autolavadoService.clients$.subscribe((clientsMap) => {
+    this.allClients = Object.values(clientsMap);
+    this.filterClientsAdmin();  // Recalcula la búsqueda actual
+    console.log('allClients actualizado desde clientsSubject:', this.allClients.length);
   });
+
 }
 
-iniciarCierreAutomatico(): void {
-  setInterval(() => {
-    const now = new Date();
-    const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
 
-    if (currentTime === this.horaCierreAutomatico) {
-      console.log(`Hora de cierre automático: ${currentTime}`);
-      this.cerrarDiaAutomatico();
-    }
-  }, 60000); // Cada minuto
-}
+private limpiarEspaciosDeDiasAnteriores(): void {
+  const spaces = this.autolavadoService.spacesSubject.value;
+  const clients = this.autolavadoService.clientsSubject.value;
 
-// NUEVO MÉTODO: Cargar subsuelos y espacios desde backend si localStorage vacío
-private loadDataFromBackend0(): void {
-  forkJoin({
-    subsuelos: this.autolavadoService.loadSubsuelosFromBackend(),
-    spaces: this.autolavadoService.loadSpacesFromBackend()
-  }).subscribe({
-    next: ({ subsuelos, spaces }) => {
-      console.log('Datos cargados desde backend como respaldo');
+  const hoyInicio = new Date();
+  hoyInicio.setHours(0, 0, 0, 0);
+  const hoyTimestamp = hoyInicio.getTime();
 
-      // Convertir array de spaces a objeto con key
-      const spacesObj: { [key: string]: Space } = {};
-      spaces.forEach(s => {
-        spacesObj[s.key] = s;
-      });
+  let necesitaLiberar = false;
 
-      // ACTUALIZAR LOS BEHAVIOR SUBJECTS DEL SERVICIO
-      this.autolavadoService.subsuelosSubject.next(subsuelos);
-      this.autolavadoService.spacesSubject.next(spacesObj);
+  Object.values(spaces).forEach(space => {
+    if (space.occupied && space.startTime) {
+      if (space.startTime < hoyTimestamp) {
+        console.log(`Espacio ${space.key} ocupado desde día anterior (${new Date(space.startTime).toLocaleDateString()}) → liberando`);
 
-      // Guardar en localStorage para próxima vez
-      this.autolavadoService.saveAll();
+        // Liberar localmente
+        space.occupied = false;
+        space.clientId = null;
+        space.startTime = null;
+        space.hold = false;
+        space.client = null;
 
-      // Establecer subsuelo actual
-      if (subsuelos.length > 0) {
-        this.autolavadoService.currentSubIdSubject.next(subsuelos[0].id);
+        // Limpiar cliente local si existe
+        if (space.clientId) {
+          delete clients[space.clientId];
+        }
+
+        necesitaLiberar = true;
       }
-    },
-    error: (err) => {
-      console.error('Error cargando datos desde backend', err);
-      alert('No hay datos en servidor ni local. Creando subsuelo inicial...');
-      // Crear primer subsuelo si todo falla
-      this.autolavadoService.addSubsuelo();
     }
   });
+
+  if (necesitaLiberar) {
+    console.log('Espacios de días anteriores detectados → actualizando local y backend');
+
+    // Actualizar subjects
+    this.autolavadoService.spacesSubject.next({ ...spaces });
+    this.autolavadoService.clientsSubject.next({ ...clients });
+    this.autolavadoService.saveAll();
+
+    // Liberar en backend (tu método ya limpia clientes también)
+    this.autolavadoService.resetDataInBackend().subscribe({
+      next: () => {
+        console.log('Backend sincronizado: espacios liberados');
+        this.filterSpaces();
+        this.cdr.detectChanges();
+      },
+      error: (err) => console.warn('Error sincronizando backend', err)
+    });
+
+    this.filterSpaces();
+    this.cdr.detectChanges();
+  } else {
+    console.log('Todos los espacios ocupados son de hoy → nada que limpiar');
+  }
 }
+
+
 
 
 private loadDataFromBackend(): void {
@@ -452,64 +451,7 @@ editClient(client: Client): void {
   // Aquí puedes abrir otro modal con formulario para editar
 }
 
-deleteClient0(clientId: any): void {
-  if (confirm(`¿Eliminar cliente ID ${clientId}? Esta acción es irreversible.`)) {
-    this.autolavadoService.deleteClientFromBackend(clientId).subscribe({
-      next: () => {
-        this.allClients = this.allClients.filter(c => c.id !== clientId);
-        console.log(`Cliente ${clientId} eliminado del backend`);
-        alert('Cliente eliminado correctamente');
-      },
-      error: (err) => {
-        console.error('Error eliminando cliente', err);
-        alert('Error al eliminar cliente');
-      }
-    });
-  }
-}
 
-deleteClient1(clientId: any): void {
-  if (confirm(`¿Eliminar cliente ID ${clientId}? Esto liberará el espacio que ocupa (si lo tiene).`)) {
-    console.log('Iniciando eliminación del cliente ID:', clientId);
-
-    this.autolavadoService.deleteClientFromBackend(clientId).subscribe({
-      next: () => {
-        console.log(`Cliente ${clientId} eliminado del backend`);
-
-        // Actualizar tabla admin
-        this.allClients = this.allClients.filter(c => c.id !== clientId);
-
-        // RECARGAR ESPACIOS DESDE BACKEND para reflejar liberación
-        this.autolavadoService.loadSpacesFromBackend().subscribe({
-          next: (spacesFromBackend) => {
-            console.log('Espacios recargados desde backend después de eliminar cliente');
-
-            // Convertir a mapa
-            const spacesMap: { [key: string]: Space } = {};
-            spacesFromBackend.forEach(space => spacesMap[space.key] = space);
-
-            // Actualizar subjects
-            this.autolavadoService.spacesSubject.next(spacesMap);
-            this.autolavadoService.saveAll();
-
-            // Actualizar grid principal
-            this.filterSpaces();
-            this.cdr.detectChanges();
-
-            console.log('Grid de espacios actualizada con datos frescos del backend');
-          },
-          error: (err) => console.warn('Error recargando espacios desde backend', err)
-        });
-
-        alert('Cliente eliminado correctamente');
-      },
-      error: (err) => {
-        console.error('Error eliminando cliente', err);
-        alert('Error al eliminar cliente');
-      }
-    });
-  }
-}
 
 deleteClient(clientId: any): void {
   if (confirm(`¿Eliminar cliente ID ${clientId}? Esto liberará el espacio que ocupa (si lo tiene).`)) {
@@ -519,10 +461,8 @@ deleteClient(clientId: any): void {
       next: () => {
         console.log(`Cliente ${clientId} eliminado correctamente`);
 
-        // Actualizar tabla admin (si estás en panel admin)
-        this.allClients = this.allClients.filter(c => c.id !== clientId);
-
-        // Actualizar grid principal y tabla "Servicios del día"
+        // La suscripción a clients$ ya actualiza allClients y filteredClientsAdmin automáticamente
+        // Solo actualizamos la vista de espacios
         this.filterSpaces();
         this.cdr.detectChanges();
 
@@ -657,27 +597,7 @@ getFormattedDate(timestamp: number | null | undefined): string {
   return timestamp ? new Date(timestamp).toLocaleString() : '-';
 }
 
-  onSpaceClick0(space: Space): void {
-    this.selectedSpaceKey = space.key;
-    this.selectedSpace = space;
-    this.showQR = false;
-    this.showOccupiedQR = false;
 
-    if (space.occupied) {
-      // Mostrar modal de ocupado
-      this.selectedClient = this.clients[space.clientId!];
-      if (this.selectedClient) {
-        this.whatsappLink = this.autolavadoService.buildWhatsAppLink(this.selectedClient, space);
-        this.qrCaption = `${this.selectedClient.name} — ${this.selectedClient.code}`;
-      }
-      this.showModal('occupiedModal');
-    } else {
-      // Mostrar modal de cliente
-      this.clientForm.reset();
-      this.whatsappLink = '';
-      this.showModal('clientModal');
-    }
-  }
 
   onSpaceClick(space: Space): void {
   this.selectedSpaceKey = space.key;
@@ -733,7 +653,7 @@ private updateOccupiedModal(client: Client | null, space: Space): void {
 
 
 
-saveClient(): void {
+saveClient0(): void {
   if (this.clientForm.invalid) {
     alert('Por favor completa todos los campos obligatorios.');
     return;
@@ -825,6 +745,102 @@ saveClient(): void {
   }
 }
 
+saveClient(): void {
+  if (this.clientForm.invalid) {
+    alert('Por favor completa todos los campos obligatorios.');
+    return;
+  }
+
+  try {
+    const selectedVehicleModel = this.clientForm.value.vehicle;
+    const selectedVehicle = this.vehicles.find(v => v.model === selectedVehicleModel);
+
+    const category = selectedVehicle?.category || 'AUTO';
+    const price = this.clientForm.value.price || selectedVehicle?.price || 35000;
+
+    const localClientData = {
+      ...this.clientForm.value,
+      category,
+      price
+    };
+
+    // GUARDAR EN LOCAL (genera tempId)
+    const localClient = this.autolavadoService.saveClient(localClientData, this.selectedSpaceKey);
+    const space = this.spaces[this.selectedSpaceKey];
+
+    this.whatsappMessage = this.autolavadoService.buildWhatsAppMessage(localClient, space);
+    this.whatsappLink = this.autolavadoService.buildWhatsAppLink(localClient, space);
+
+    this.hasCopiedMessage = false;
+
+    // DATOS PARA BACKEND
+    const payload = {
+      id: this.existingClientId || null,
+      name: localClient.name,
+      dni: localClient.dni || '',
+      phoneRaw: localClient.phoneRaw,
+      phoneIntl: localClient.phoneIntl,
+      code: localClient.code,
+      vehicle: localClient.vehicle,
+      plate: localClient.plate,
+      notes: localClient.notes,
+      category: localClient.category,
+      price: localClient.price,
+      vehicleType: selectedVehicle ? { id: selectedVehicle.id } : null
+    };
+
+    console.log('Datos enviados al backend:', payload);
+
+    this.autolavadoService.saveClientToBackend({
+      spaceKey: this.selectedSpaceKey,
+      payload: payload
+    }).subscribe({
+      next: (serverClient) => {
+        console.log('Cliente reservado/actualizado en backend:', serverClient);
+
+        const tempId = localClient.id;
+        const realId = serverClient.id.toString();  // Siempre string para clave en mapa
+
+        const clientsMap = this.autolavadoService.clientsSubject.value;
+
+        // Mover cliente de tempId a realId
+        if (clientsMap[tempId]) {
+          const clientToMove = { ...clientsMap[tempId], id: realId };
+          delete clientsMap[tempId];
+          clientsMap[realId] = clientToMove;
+
+          // Emitir nuevo mapa (crea nueva referencia para que Angular detecte cambio)
+          this.autolavadoService.clientsSubject.next({ ...clientsMap });
+          console.log(`Cliente movido de tempId ${tempId} a realId ${realId}`);
+        }
+
+        // Actualizar espacio con ID real
+        space.clientId = realId;
+        this.autolavadoService.spacesSubject.next({ ...this.spaces });
+
+        // Guardar en localStorage con el ID real como clave
+        this.autolavadoService.saveAll();
+
+        // ACTUALIZAR VISTA INMEDIATAMENTE
+        this.filterSpaces();  // ← Actualiza la grid de espacios
+        //this.calculateStats();  // ← Actualiza estadísticas y filteredClients
+        this.cdr.detectChanges();  // ← Fuerza renderizado inmediato
+
+        alert('Cliente guardado exitosamente!');
+
+        this.openWhatsApp();
+      },
+      error: (err) => {
+        console.warn('Error en backend (funciona offline)', err);
+      }
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error al guardar cliente: ' + error);
+  }
+}
+
+
 onVehicleSelected(event: Event): void {
   const select = event.target as HTMLSelectElement;
   const selectedModel = select.value;
@@ -903,9 +919,23 @@ launchWhatsApp(): void {
     window.open(this.whatsappLink, '_blank');
     // this.closeWhatsAppModalOccupied();
 
-    this.hasCopiedMessageOccupied = false
+    //this.hasCopiedMessageOccupied = false
+    this.hasCopiedMessage = false;
     // No cerramos el modal aquí
   }
+}
+
+launchWhatsAppRelease(): void {
+  if (!this.selectedClient || !this.whatsappMessageOccupied) return;
+
+  const phone = this.selectedClient.phoneIntl;
+  const message = this.whatsappMessageOccupied;
+  const encoded = encodeURIComponent(message);
+  const link = `whatsapp://send?phone=${phone}&text=${encoded}`;
+
+  window.open(link, '_blank');
+
+  this.hasCopiedMessageOccupied = false;
 }
 
 
@@ -1010,7 +1040,7 @@ toggleOccupiedQR(): void {
     }
   }
 
-  releaseSpace(): void {
+  releaseSpace1(): void {
   if (confirm(`¿Liberar espacio ${this.selectedSpace?.displayName || this.selectedSpaceKey}?`)) {
     this.autolavadoService.releaseSpace(this.selectedSpaceKey).subscribe({
       next: () => {
@@ -1018,6 +1048,34 @@ toggleOccupiedQR(): void {
         this.filterSpaces();
         this.cdr.detectChanges();
         this.hideModal('occupiedModal');
+        alert('Espacio liberado correctamente');
+      },
+      error: (err) => {
+        console.warn('Error liberando espacio', err);
+        alert('Liberado localmente. Se sincronizará con conexión.');
+        this.hideModal('occupiedModal');
+      }
+    });
+  }
+}
+
+releaseSpace(): void {
+  if (confirm(`¿Liberar espacio ${this.selectedSpace?.displayName || this.selectedSpaceKey}?`)) {
+    this.autolavadoService.releaseSpace(this.selectedSpaceKey).subscribe({
+      next: () => {
+        console.log('Espacio liberado y datos sincronizados');
+
+        // Si había cliente, generar mensaje de liberación y abrir modal
+        if (this.selectedClient) {
+          this.whatsappMessageOccupied = this.autolavadoService.buildWhatsAppMessageRelease(this.selectedClient);
+          this.hasCopiedMessageOccupied = false;
+          this.showWhatsAppModalOccupied = true;  // ← ABRIR MODAL AUTOMÁTICAMENTE
+        }
+
+        this.filterSpaces();
+        this.cdr.detectChanges();
+        this.hideModal('occupiedModal');
+
         alert('Espacio liberado correctamente');
       },
       error: (err) => {
@@ -1254,9 +1312,17 @@ transferSpace(): void {
 }
 
 
-openWhatsAppModalOccupied(): void {
+openWhatsAppModalOccupied0(): void {
   if (this.selectedClient && this.selectedSpace) {
     this.whatsappMessageOccupied = this.autolavadoService.buildWhatsAppMessage(this.selectedClient, this.selectedSpace);
+    this.showWhatsAppModalOccupied = true;
+  }
+}
+
+openWhatsAppModalOccupied(): void {
+  if (this.selectedClient && this.selectedSpace) {
+    this.whatsappMessageOccupied = this.autolavadoService.buildWhatsAppMessageRelease(this.selectedClient);
+    this.hasCopiedMessageOccupied = false;
     this.showWhatsAppModalOccupied = true;
   }
 }
@@ -1284,6 +1350,8 @@ copyMessageOccupied(): void {
 
 
 }
+
+
 
 
 

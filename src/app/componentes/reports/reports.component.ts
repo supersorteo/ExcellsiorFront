@@ -38,7 +38,7 @@ export class ReportsComponent implements OnInit, OnDestroy {
   clave: string;
  // clover: number | null;
   clover: string;
-  metodoPago: 'efectivo' | 'credito' | 'prepago';
+  metodoPago: 'efectivo' | 'credito' | 'prepago'| 'qr';
 } = {
   valor: 0,
   clave: '',
@@ -473,7 +473,7 @@ openEditClient(client: Client): void {
     valor: client.price || 0,
     clave: client.code || '',
     clover: client.clover ? client.clover.toString().padStart(4, '0') : '',
-    metodoPago: (client.paymentMethod as 'efectivo' | 'credito' | 'prepago') || 'efectivo'
+    metodoPago: (client.paymentMethod as 'efectivo' | 'credito' | 'prepago' | 'qr') || 'efectivo'
   };
 
   this.isEditClientOpen = true;
