@@ -61,6 +61,8 @@ export class ReportsComponent implements OnInit, OnDestroy {
   pageSize = 5;
   currentPage = 1;
   currentClients!: Client[];
+  editClientHeaderMessage = '';
+  private editClientHeaderTimer: any = null;
 
   //private API_BASE = 'http://localhost:8080/api'
   private API_BASE = 'https://excellsiorback-production.up.railway.app/api'
@@ -295,14 +297,26 @@ acceptEditClient1(): void {
       this.calculateStats();
       this.cdr.detectChanges();
 
-      alert('Datos actualizados correctamente');
-      this.closeEditClient();
+      this.showEditClientHeaderMessage('Datos actualizados correctamente');
     },
     error: (err) => {
       console.error('Error', err);
       alert('Error al actualizar');
     }
   });
+}
+
+private showEditClientHeaderMessage(message: string): void {
+  this.editClientHeaderMessage = message;
+  if (this.editClientHeaderTimer) {
+    clearTimeout(this.editClientHeaderTimer);
+  }
+  this.editClientHeaderTimer = setTimeout(() => {
+    this.editClientHeaderMessage = '';
+    this.editClientHeaderTimer = null;
+    this.cdr.detectChanges();
+    this.closeEditClient();
+  }, 3000);
 }
 
 acceptEditClient(): void {
@@ -351,8 +365,7 @@ acceptEditClient(): void {
       this.calculateStats();
       this.cdr.detectChanges();
 
-      alert('Datos actualizados correctamente');
-      this.closeEditClient();
+      this.showEditClientHeaderMessage('Datos actualizados correctamente');
     },
     error: (err) => {
       console.error('Error', err);

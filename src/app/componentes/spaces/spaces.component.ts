@@ -64,6 +64,10 @@ export class SpacesComponent implements OnInit, OnDestroy {
   whatsappMessageOccupied = '';
   whatsappMessageOccupied0 = '';
   hasCopiedMessageOccupied = false;
+  cerrarDiaModalMessage = '';
+  cerrarDiaResultMessage = '';
+  saveClientHeaderMessage = '';
+  private saveClientHeaderTimer: any = null;
 
 
 vehicles: VehicleType[] = [];
@@ -175,6 +179,14 @@ ngOnInit(): void {
     next: (vehicles: VehicleType[]) => {
       this.vehicles = vehicles;
       console.log('Tipos de vehículos cargados desde backend:', vehicles);
+      const currentVehicle = this.clientForm.get('vehicle')?.value;
+      if (!currentVehicle && vehicles.length > 0) {
+        const defaultVehicle = vehicles[0];
+        this.clientForm.patchValue({
+          vehicle: defaultVehicle.model,
+          price: defaultVehicle.price
+        });
+      }
     },
     error: (err) => {
       console.error('Error al cargar vehículos', err);
@@ -733,7 +745,15 @@ saveClient0(): void {
         this.filterSpaces();
         this.cdr.detectChanges();
 
-        alert('Cliente guardado exitosamente!');
+        this.saveClientHeaderMessage = 'Cliente guardado exitosamente!';
+        if (this.saveClientHeaderTimer) {
+          clearTimeout(this.saveClientHeaderTimer);
+        }
+        this.saveClientHeaderTimer = setTimeout(() => {
+          this.saveClientHeaderMessage = '';
+          this.saveClientHeaderTimer = null;
+          this.cdr.detectChanges();
+        }, 3000);
       },
       error: (err) => {
         console.warn('Error en backend (funciona offline)', err);
@@ -1129,27 +1149,41 @@ cerrarDia0(): void {
   }
 }
 
+openCerrarDiaModal(): void {
+  const hoy = new Date().toLocaleDateString('es-AR');
+  this.cerrarDiaModalMessage =
+    `Cerrar el dia ${hoy}?\n\nEsto liberara todos los espacios.\nLos clientes se mantendran en el historico.\n\nContinuar?`;
+  this.showModal('closeDayModal');
+}
+
+confirmCerrarDia(): void {
+  this.hideModal('closeDayModal');
+  this.cerrarDia();
+}
+
 cerrarDia(): void {
   const hoy = new Date().toLocaleDateString('es-AR');
-  if (confirm(`¿Cerrar el día ${hoy}?\n\nEsto liberará todos los espacios.\nLos clientes se mantendrán en el histórico.\n\n¿Continuar?`)) {
-    console.log('Iniciando cierre del día...');
+  console.log('Iniciando cierre del dia...');
 
-    this.autolavadoService.resetData().subscribe({
-      next: () => {
-        console.log('Día cerrado correctamente');
+  this.autolavadoService.resetData().subscribe({
+    next: () => {
+      console.log('Dia cerrado correctamente');
 
-        // Actualizar vista
-        this.filterSpaces();
-        this.cdr.detectChanges();
+      // Actualizar vista
+      this.filterSpaces();
+      this.cdr.detectChanges();
 
-        alert(`Día ${hoy} cerrado.\nTodos los espacios están libres.\nDatos sincronizados con el servidor.`);
-      },
-      error: (err) => {
-        console.warn('Error en el cierre del día', err);
-        alert('Cerrado localmente. Intentá de nuevo cuando haya conexión.');
-      }
-    });
-  }
+      this.cerrarDiaResultMessage =
+        `Dia ${hoy} cerrado.\nTodos los espacios estan libres.\nDatos sincronizados con el servidor.`;
+      this.showModal('closeDayResultModal');
+    },
+    error: (err) => {
+      console.warn('Error en el cierre del dia', err);
+      this.cerrarDiaResultMessage =
+        'Cerrado localmente. Intenta de nuevo cuando haya conexion.';
+      this.showModal('closeDayResultModal');
+    }
+  });
 }
 
 

@@ -1,16 +1,10 @@
-  <div class="row g-3 align-items-end mb-3">
+﻿  <div class="row g-3 align-items-end mb-3">
 
       <div class="d-flex align-items-center justify-content-between mb-3">
 
-          <img src="../assets/logo/logo_autolvadao.jpg" alt="Logo Autolavado" class="img-fluid" style="max-height: 50px;">
+          <img src="../assets/logo/logo_autolvadao.jpg" alt="Logo Autolavado" class="img-fluid" style="max-height: 80px;">
       <div>
         <!--button  class="btn btn-outline-light btn-sm" (click)="resetData()" title="Borrar todo (demo)">Limpiar datos</button-->
-        <button
-    class="btn btn-occ  rounded-3 shadow-sm py-3 fw-bold"
-    (click)="cerrarDia()">
-    <i class="fas fa-door-closed me-2"></i>
-    CERRAR DÍA - LIMPIAR TODO
-  </button>
       </div>
     </div>
 
@@ -34,7 +28,7 @@
 
 <!--div-- style="height: 60px;"></!--div-->
 
-<hr>
+
 
 </div>
 
@@ -104,6 +98,20 @@
         </ul>
       </nav>
     </div>
+    <div class="d-flex justify-content-between align-items-center mt-2 gap-2">
+      <button
+        class="btn btn-occ btn-sm rounded-3 shadow-sm" style="padding: 4px 8px; font-size: 0.85rem;"
+        (click)="openCerrarDiaModal()">
+        <i class="fas fa-door-closed me-2"></i>
+        CERRAR DIA - LIMPIAR TODO
+      </button>
+      <button
+        class="btn btn-outline-info btn-sm rounded-3 shadow-sm" style="padding: 4px 8px; font-size: 0.85rem;"
+        (click)="openClientsDb()">
+        <i class="fas fa-users-cog me-2"></i>
+        BASE DE DATOS DE CLIENTES
+      </button>
+    </div>
 
       </div>
     </div>
@@ -158,41 +166,65 @@
   </button>
 </!--div-->
 
-<div class="container my-4">
-  <button
-    class="btn btn-outline-info btn-lg w-100 rounded-3 shadow-sm py-3 fw-semibold"
-    (click)="openClientsDb()">
-    <i class="fas fa-users-cog me-2"></i>
-    BASE DE DATOS DE CLIENTES
-  </button>
-</div>
+
  <!--button-- class="btn btn-outline-info " type="button" (click)="openClientsDb()">
       BASE DE DATOS DE CLIENTES
     </!--button-->
 
 
 
-    <!--button-- class="btn btn-primary btn-lg position-fixed"
-    style="bottom: 20px; right: 20px; border-radius: 50%; width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(0,0,0,0.3); z-index: 1050;" onclick="window.open('https://orbitasoftware.site/', '_blank')">
-  <i class="bi bi-box-arrow-up-right" style="font-size: 24px; color: white;"></i>
-</!--button-->
 
-<p class="position-fixed" style="bottom: 20px; right: 20px; z-index: 1050; font-size: 14px;"><strong>Desarrollado por:</strong>
 
-  <a href="https://orbitasoftware.site/" target="_blank" class="text-primary text-decoration-underline">
-    www.orbitasoftware.site
-  </a>
-</p>
+    <!-- Close Day Modal -->
+    <div class="modal fade" id="closeDayModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-dark">
+          <div class="modal-header">
+            <h5 class="modal-title">Cerrar dia</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-0" style="white-space: pre-line;">{{ cerrarDiaModalMessage }}</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-danger" (click)="confirmCerrarDia()">Confirmar</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    <div class="modal fade" id="closeDayResultModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-dark">
+          <div class="modal-header">
+            <h5 class="modal-title">Resultado</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-0" style="white-space: pre-line;">{{ cerrarDiaResultMessage }}</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Client Modal -->
    <div class="modal fade" id="clientModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content modal-dark">
       <div class="modal-header">
-        <h5 class="modal-title">
-          Asignar cliente a <span class="code-badge">{{selectedSpace?.displayName || selectedSpaceKey}}</span>
-        </h5>
+        <div>
+          <h5 class="modal-title">
+            Asignar cliente a <span class="code-badge">{{selectedSpace?.displayName || selectedSpaceKey}}</span>
+          </h5>
+          
+        </div>
+        <div *ngIf="saveClientHeaderMessage" style="color: #22c55e;">
+            {{ saveClientHeaderMessage }}
+          </div>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
@@ -231,13 +263,13 @@
           <!-- VEHÍCULO -->
           <div class="col-md-6">
             <label class="form-label">Modelo de vehículo *</label>
-            <select
+          
+            <select 
               formControlName="vehicle"
-              class="form-select form-select-lg shadow-sm"
-              style="background: #6d7b92; border: 1px solid #334155; color: #121314;"
+              class="form-select form-select-lg shadow-sm vehicle-select"
               required
               (change)="onVehicleSelected($event)">
-              <option value="" disabled selected>Seleccionar vehículo</option>
+              <option value="" disabled selected>Seleccione un modelo</option>
 
               <optgroup label="SUV - $40.000">
                 <option *ngFor="let v of vehicles" [value]="v.model" [hidden]="v.category !== 'SUV'">
@@ -281,7 +313,7 @@
                 type="number"
                 formControlName="price"
                 class="form-control form-control-lg shadow-sm"
-                style="background: #6d7b92; border: 1px solid #6d7b92; color: #121314;"
+                style="background: #00040a; border: 1px solid #6d7b92; color: #edeff0;"
                 min="1"
                 required
                 placeholder="Precio">
@@ -837,3 +869,6 @@
     </div>
   </div>
 </div>
+
+
+
