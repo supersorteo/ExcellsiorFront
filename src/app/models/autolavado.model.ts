@@ -32,6 +32,7 @@ export interface Client {
   vehicleType?: VehicleType | null;
   paymentMethod?: string;  // ← NUEVO
   clover?: number | null;
+  entryTimestamp?: number;
 }
 
 export interface QRData {

@@ -16,9 +16,9 @@ import { AutolavadoService } from '../../services/autolavado.service';
 export class ReportsListComponent implements OnInit{
 
   reports: Report[] = [];
-  //private apiBase = 'http://localhost:8080/api';
+  private apiBase = 'http://localhost:8080/api';
 
-   private apiBase = 'https://excellsiorback-production.up.railway.app/api'
+  // private apiBase = 'https://excellsiorback-production.up.railway.app/api'
 
    constructor(private http: HttpClient, private autolavadoService:AutolavadoService) {}
 

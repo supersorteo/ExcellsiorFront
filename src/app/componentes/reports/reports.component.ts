@@ -25,13 +25,8 @@ export class ReportsComponent implements OnInit, OnDestroy {
   searchTerm = '';
   isEditClientOpen = false;
 
-  editForm1 = {
-    valor: 0,
-    clave: '',
-    clover: null as number | null,
-    metodoPago: 'efectivo'
-  };
-
+currentPageDaily = 1;
+pageSizeDaily = 5;
 
   editForm: {
   valor: number;
@@ -58,19 +53,30 @@ export class ReportsComponent implements OnInit, OnDestroy {
     over3h: 0
   };
 
+  dailyTotalCobrado = 0;
+  paymentStats = {
+  efectivo: { count: 0, pct: 0 },
+  credito: { count: 0, pct: 0 },
+  prepago: { count: 0, pct: 0 },
+  qr: { count: 0, pct: 0 },
+  otros: { count: 0, pct: 0 }
+};
+
+
   pageSize = 5;
   currentPage = 1;
   currentClients!: Client[];
 
-  //private API_BASE = 'http://localhost:8080/api'
-  private API_BASE = 'https://excellsiorback-production.up.railway.app/api'
+  private API_BASE = 'http://localhost:8080/api'
+  //private API_BASE = 'https://excellsiorback-production.up.railway.app/api'
   showReportsList = false;
 
 scheduledTime: string = ''; // Hora guardada (ej. "23:30")
 private dailyInterval: any;
 currentPageToday = 1;
 pageSizeToday = 5;
-
+dailyClients: Client[] = [];
+Math: any;
   constructor(private autolavadoService: AutolavadoService, private cdr: ChangeDetectorRef, private http: HttpClient) {}
 
 
@@ -79,14 +85,16 @@ pageSizeToday = 5;
       this.autolavadoService.subsuelos$,
       this.autolavadoService.spaces$,
       this.autolavadoService.clients$,
-      this.autolavadoService.filteredClients$
+      //this.autolavadoService.filteredClients$,
+      this.autolavadoService.dailyClients$
     ]).pipe(takeUntil(this.destroy$))
-    .subscribe(([subsuelos, spaces, clients, filteredClients]) => {
+    .subscribe(([subsuelos, spaces, clients, dailyClients]) => {
       this.subsuelos = subsuelos;
       this.spaces = spaces;
       this.clients = clients;
-      this.filteredClients = filteredClients;
-      console.log('Filtered Clients cargados:', filteredClients);
+      this.filteredClients = dailyClients;
+      this.dailyClients = dailyClients;
+      console.log('Filtered Clients cargados:', dailyClients);
       this.calculateStats();
       this.cdr.detectChanges();
     });
@@ -114,6 +122,11 @@ pageSizeToday = 5;
   setInterval(() => {
     this.checkIfShouldGenerateDailyReport();
   }, 60 * 1000);*/
+
+  this.autolavadoService.dailyClients$.subscribe(() => {
+    this.calculateStats();
+    this.cdr.detectChanges();
+  });
 
 
   }
@@ -157,9 +170,23 @@ get todaysClients(): Client[] {
   });
 }
 
+get activeTodaysClients(): Client[] {
+  return this.filteredClients.filter(client => {
+    const space = this.spaces[client.spaceKey];
+    return space && space.occupied && this.isToday(space.startTime);
+  });
+}
+
 get paginatedTodaysClients(): Client[] {
   const start = (this.currentPageToday - 1) * this.pageSizeToday;
   return this.todaysClients.slice(start, start + this.pageSizeToday);
+}
+
+
+
+getAverageServicePrice(): number {
+  if (this.dailyClients.length === 0) return 0;
+  return Math.round(this.dailyTotalCobrado / this.dailyClients.length);
 }
 
 get totalPagesToday(): number {
@@ -195,7 +222,40 @@ get pageNumbersToday(): number[] {
   return pages;
 }
 
+get paginatedDailyClients(): Client[] {
+  const start = (this.currentPageDaily - 1) * this.pageSizeDaily;
+  return this.dailyClients.slice(start, start + this.pageSizeDaily);
+}
 
+
+
+get totalPagesDaily(): number {
+  return Math.ceil(this.dailyClients.length / this.pageSizeDaily);
+}
+
+get pageNumbersDaily(): number[] {
+  const total = this.totalPagesDaily;
+  const current = this.currentPageDaily;
+  const maxPages = 5;
+  let start = Math.max(1, current - Math.floor(maxPages / 2));
+  let end = Math.min(total, start + maxPages - 1);
+
+  if (end - start + 1 < maxPages) {
+    start = Math.max(1, end - maxPages + 1);
+  }
+
+  const pages: number[] = [];
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+  return pages;
+}
+
+setPageDaily(page: number): void {
+  if (page >= 1 && page <= this.totalPagesDaily) {
+    this.currentPageDaily = page;
+  }
+}
 
 
 
@@ -388,7 +448,7 @@ isCloverInvalid(): boolean {
   };
 }
 
-  private calculateStats(): void {
+  private calculateStats0(): void {
     const spacesArray = Object.values(this.spaces);
 
     // Estadísticas generales
@@ -445,6 +505,76 @@ isCloverInvalid(): boolean {
       }
     });
   }
+
+
+private calculateStats(): void {
+  const spacesArray = Object.values(this.spaces);
+
+  // Estadísticas generales (espacios actuales - se mantienen)
+  this.totalSpaces = spacesArray.length;
+  this.occupiedSpaces = spacesArray.filter(s => s.occupied).length;
+  this.freeSpaces = this.totalSpaces - this.occupiedSpaces;
+  this.occupancyRate = this.totalSpaces > 0 ? Math.round((this.occupiedSpaces / this.totalSpaces) * 100) : 0;
+
+  // Por subsuelo (actuales - se mantienen)
+  this.subsueloStats = this.subsuelos.map(sub => {
+    const subSpaces = spacesArray.filter(s => s.subsueloId === sub.id);
+    const subOccupied = subSpaces.filter(s => s.occupied).length;
+    const subTotal = subSpaces.length;
+    const subFree = subTotal - subOccupied;
+    const subOccupancyRate = subTotal > 0 ? Math.round((subOccupied / subTotal) * 100) : 0;
+
+    return {
+      id: sub.id,
+      label: sub.label,
+      total: subTotal,
+      occupied: subOccupied,
+      free: subFree,
+      occupancyRate: subOccupancyRate
+    };
+  });
+
+  // NUEVO: Estadísticas del día completo (basado en dailyClients)
+  const dailyClients = this.dailyClients;
+
+  // Total cobrado del día
+  this.dailyTotalCobrado = dailyClients.reduce((sum, c) => sum + (c.price || 0), 0);
+
+  // Métodos de pago
+  const totalServices = dailyClients.length;
+  const paymentCounts = { efectivo: 0, credito: 0, prepago: 0, qr: 0, otros: 0 };
+
+  dailyClients.forEach(c => {
+    const method = (c.paymentMethod || 'otros').toLowerCase();
+    if (method in paymentCounts) {
+      paymentCounts[method as keyof typeof paymentCounts]++;
+    } else {
+      paymentCounts.otros++;
+    }
+  });
+
+  this.paymentStats = {
+    efectivo: { count: paymentCounts.efectivo, pct: totalServices > 0 ? Math.round((paymentCounts.efectivo / totalServices) * 100) : 0 },
+    credito: { count: paymentCounts.credito, pct: totalServices > 0 ? Math.round((paymentCounts.credito / totalServices) * 100) : 0 },
+    prepago: { count: paymentCounts.prepago, pct: totalServices > 0 ? Math.round((paymentCounts.prepago / totalServices) * 100) : 0 },
+    qr: { count: paymentCounts.qr, pct: totalServices > 0 ? Math.round((paymentCounts.qr / totalServices) * 100) : 0 },
+    otros: { count: paymentCounts.otros, pct: totalServices > 0 ? Math.round((paymentCounts.otros / totalServices) * 100) : 0 }
+  };
+
+  // Distribución por tiempo (basado en entryTimestamp)
+  const now = Date.now();
+  this.timeStats = { under1h: 0, between1h3h: 0, over3h: 0 };
+
+  dailyClients.forEach(c => {
+    if (!c.entryTimestamp) return;
+    const elapsedMs = now - c.entryTimestamp;
+    const elapsedHours = elapsedMs / (3600000);
+
+    if (elapsedHours < 1) this.timeStats.under1h++;
+    else if (elapsedHours <= 3) this.timeStats.between1h3h++;
+    else this.timeStats.over3h++;
+  });
+}
 
 
 
@@ -505,6 +635,15 @@ openEditClient(client: Client): void {
   get totalPages(): number {
     return Math.ceil(this.filteredClients.length / this.pageSize);
   }
+
+  getElapsedTimeForClient(client: Client): string {
+  if (!client.entryTimestamp) return 'N/A';
+  const ms = Date.now() - client.entryTimestamp;
+  const mins = Math.floor(ms / 60000);
+  const hours = Math.floor(mins / 60);
+  const min = mins % 60;
+  return hours > 0 ? `${hours}h ${min}m` : `${min}m`;
+}
 
   get pageNumbers(): number[] {
     const total = this.totalPages;
@@ -790,7 +929,7 @@ generateAndSaveReport1(isManual: boolean = false): void {
   });
 }
 
-generateAndSaveReport(isManual: boolean = false): void {
+generateAndSaveReport2(isManual: boolean = false): void {
   // 1. Filtrar SOLO clientes del día actual
   const today = new Date().setHours(0, 0, 0, 0);
   const todaysFilteredClients = this.filteredClients.filter(client => {
@@ -852,6 +991,77 @@ generateAndSaveReport(isManual: boolean = false): void {
         isManual
           ? 'Reporte manual generado y descargado (solo del día)'
           : 'Reporte diario automático generado y descargado (solo del día)'
+      );
+    },
+    error: (error) => {
+      console.error('Error al generar reporte', error);
+      this.showErrorToast('Error al generar el reporte');
+    }
+  });
+}
+
+generateAndSaveReport(isManual: boolean = false): void {
+  // 1. OBTENER TODOS LOS CLIENTES DEL DÍA (del nuevo dailyClients$)
+  const clientsForReport = this.dailyClients;  // ← CAMBIO CLAVE: todos los del día
+
+  if (clientsForReport.length === 0) {
+    alert('No hay clientes para generar el reporte del día');
+    return;
+  }
+
+  console.log('Clientes del día para reporte:', clientsForReport.length);
+
+  // 2. ENRIQUECER con startTime (ya lo tienen de entryTimestamp, pero usamos startTime del space si existe)
+  const enrichedClients = clientsForReport.map(client => {
+    const space = this.spaces[client.spaceKey || ''];
+    return {
+      ...client,
+      startTime: space?.startTime || client.entryTimestamp || null,
+      spaceDisplayName: space ? (space.displayName || client.spaceKey) : client.spaceKey || '-'
+    };
+  });
+
+  // 3. Preparar datos para el reporte
+  const reportData = {
+    timestamp: new Date().toISOString(),
+    totalSpaces: this.totalSpaces,
+    occupiedSpaces: this.occupiedSpaces,
+    freeSpaces: this.freeSpaces,
+    occupancyRate: this.occupancyRate,
+    subsueloStats: JSON.stringify(this.subsueloStats),
+    timeStats: JSON.stringify(this.timeStats),
+    filteredClients: JSON.stringify(enrichedClients)  // ← Todos los clientes del día
+  };
+
+  console.log('Generando y guardando reporte con todos los clientes del día...', reportData);
+
+  this.http.post<Report>(`${this.API_BASE}/reports`, reportData).subscribe({
+    next: (savedReport) => {
+      console.log('Reporte guardado en backend:', savedReport);
+
+      const detailHtml = this.autolavadoService.generateReportDetailHtml({
+        ...reportData,
+        id: savedReport.id,
+        timestamp: savedReport.timestamp,
+        subsueloStats: reportData.subsueloStats,
+        timeStats: reportData.timeStats,
+        filteredClients: reportData.filteredClients
+      } as Report);
+
+      const blob = new Blob([detailHtml], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `reporte_exellsior_${new Date().toISOString().split('T')[0]}_${isManual ? 'manual' : 'automatico'}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      this.showSuccessToast(
+        isManual
+          ? 'Reporte manual generado y descargado (todos los clientes del día)'
+          : 'Reporte diario automático generado y descargado (todos los clientes del día)'
       );
     },
     error: (error) => {

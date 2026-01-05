@@ -22,7 +22,7 @@ export interface Space {
   displayName?: string;
 }
 
-export interface Client {
+ export interface Client {
   id: string;
   code: string;
   name: string;
@@ -39,7 +39,12 @@ export interface Client {
   vehicleType?: VehicleType | null;
   paymentMethod?: string;  // ← NUEVO
   clover?: number | null;
+  entryTimestamp?: number;
 }
+
+
+
+
 
 export interface ClientData {
   name: string;
@@ -72,8 +77,8 @@ export class AutolavadoService {
 
 
 
-   //private API_BASE = 'http://localhost:8080/api'
-   private API_BASE = 'https://excellsiorback-production.up.railway.app/api'
+   private API_BASE = 'http://localhost:8080/api'
+   //private API_BASE = 'https://excellsiorback-production.up.railway.app/api'
 
 
   // Observables públicos
@@ -144,6 +149,109 @@ public filteredClients$ = combineLatest([this.clients$, this.searchTermSubject, 
     console.log('Filtered Clients enriquecidos:', filtered);
 
     return filtered;
+  })
+);
+
+public dailyClients$0 = this.clients$.pipe(
+  map(clientsMap => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayTimestamp = todayStart.getTime();
+
+    const daily = Object.values(clientsMap)
+      .filter(client => {
+        const entry = client.entryTimestamp;
+        const isToday = entry && typeof entry === 'number' && entry >= todayTimestamp;
+        console.log(`Cliente ${client.id} - entryTimestamp: ${entry} - isToday: ${isToday}`);
+        return isToday;
+      })
+      .map(client => {
+        const space = this.spacesSubject.value[client.spaceKey || ''];
+        return {
+          ...client,
+          spaceDisplayName: space ? (space.displayName || client.spaceKey) : '-',
+          isCurrentlyOccupied: space ? space.occupied : false,
+          elapsedTime: client.entryTimestamp ? this.elapsedFrom(client.entryTimestamp) : 'N/A'
+        };
+      })
+      .sort((a, b) => (b.entryTimestamp || 0) - (a.entryTimestamp || 0));
+
+    console.log('Daily Clients del día:', daily.length, daily);
+    return daily;
+  })
+);
+
+public dailyClients$1 = this.clients$.pipe(
+  map(clientsMap => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayTimestamp = todayStart.getTime();
+
+    console.log('Calculando dailyClients para hoy:', new Date(todayTimestamp).toLocaleDateString());
+
+    const daily = Object.values(clientsMap)
+      .filter(client => {
+        const entry = client.entryTimestamp;
+        const isToday = entry && typeof entry === 'number' && entry >= todayTimestamp;
+        console.log(`Cliente ${client.id} - entryTimestamp: ${entry} (type: ${typeof entry}) - isToday: ${isToday}`);
+        return isToday;
+      })
+      .map(client => {
+        const space = this.spacesSubject.value[client.spaceKey || ''];
+        return {
+          ...client,
+          spaceDisplayName: space ? (space.displayName || client.spaceKey || '-') : '-',
+          isCurrentlyOccupied: space ? space.occupied : false,
+          elapsedTime: client.entryTimestamp ? this.elapsedFrom(client.entryTimestamp) : 'N/A'
+        };
+      })
+      .sort((a, b) => (b.entryTimestamp || 0) - (a.entryTimestamp || 0));
+
+    console.log('Daily Clients del día:', daily.length);
+    return daily;
+  })
+);
+
+
+public dailyClients$ = this.clients$.pipe(
+  map(clientsMap => {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayTimestamp = todayStart.getTime();
+
+    return Object.values(clientsMap)
+      .filter(client => {
+        let entry: number | null = null;
+
+        if (client.entryTimestamp) {
+          if (typeof client.entryTimestamp === 'string') {
+            entry = new Date(client.entryTimestamp).getTime();
+          } else if (typeof client.entryTimestamp === 'number') {
+            entry = client.entryTimestamp;
+          }
+        }
+
+        const isToday = entry !== null && !isNaN(entry) && entry >= todayTimestamp;
+        console.log(`Cliente ${client.id} - entryTimestamp: ${client.entryTimestamp} - convertido: ${entry} - isToday: ${isToday}`);
+
+        return isToday;
+      })
+      .map(client => {
+        const space = this.spacesSubject.value[client.spaceKey || ''];
+        let entryForElapsed = client.entryTimestamp;
+        if (typeof entryForElapsed === 'string') {
+          entryForElapsed = new Date(entryForElapsed).getTime();
+        }
+
+        return {
+          ...client,
+          spaceDisplayName: space ? (space.displayName || client.spaceKey || '-') : '-',
+          isCurrentlyOccupied: space ? space.occupied : false,
+          elapsedTime: entryForElapsed ? this.elapsedFrom(entryForElapsed as number) : 'N/A'
+        };
+      })
+      .sort((a, b) => (b.entryTimestamp ? (typeof b.entryTimestamp === 'string' ? new Date(b.entryTimestamp).getTime() : b.entryTimestamp) : 0) -
+                     (a.entryTimestamp ? (typeof a.entryTimestamp === 'string' ? new Date(a.entryTimestamp).getTime() : a.entryTimestamp) : 0));
   })
 );
 
@@ -901,7 +1009,8 @@ saveClient(clientData: any, spaceKey: string): Client {
     spaceKey,
     qrText: '',
     category,
-    price
+    price,
+    entryTimestamp: Date.now()
   };
 
   // Asignar al espacio
@@ -1007,6 +1116,8 @@ releaseSpace(spaceKey: string): Observable<any> {
     this.clientsSubject.next({ ...clients });
   }
 
+
+
   space.occupied = false;
   space.clientId = null;
   space.startTime = null;
@@ -1032,6 +1143,9 @@ releaseSpace(spaceKey: string): Observable<any> {
             updatedClientsMap[updatedClient.id.toString()] = updatedClient;
             this.clientsSubject.next({ ...updatedClientsMap });
             console.log('Cliente recargado y actualizado en local:', updatedClient);
+            this.clientsSubject.next({ ...this.clientsSubject.value });
+
+            console.log('Cliente recargado y dailyClients$ forzado a recalcular');
           })
         );
       } else {
@@ -1054,6 +1168,11 @@ releaseSpace(spaceKey: string): Observable<any> {
     })
   );
 }
+
+
+
+
+
 
 
 
@@ -1217,7 +1336,7 @@ resetData(): Observable<any> {
 
 
 
-  elapsedFrom(ts: number | null | undefined): string {
+  elapsedFrom0(ts: number | null | undefined): string {
     if (!ts) return '';
     const ms = Date.now() - Number(ts);
     if (ms < 0) return '0m';
@@ -1226,6 +1345,30 @@ resetData(): Observable<any> {
     const mm = m % 60;
     return h > 0 ? `${h}h ${mm}m` : `${mm}m`;
   }
+
+  elapsedFrom(ts: number | string | null | undefined): string {
+  // Si no hay timestamp o es inválido → vacío
+  if (!ts) return '';
+
+  // Convertir a número si es string
+  const timestamp = typeof ts === 'string' ? new Date(ts).getTime() : Number(ts);
+
+  // Si no es válido → vacío
+  if (isNaN(timestamp)) return '';
+
+  const ms = Date.now() - timestamp;
+
+  // Si es futuro (raro, pero por seguridad) → 0m
+  if (ms < 0) return '0m';
+
+  const m = Math.floor(ms / 60000);
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+
+  return h > 0 ? `${h}h ${mm}m` : `${mm}m`;
+}
+
+
 
   buildQRText(client: Client, space: Space): string {
     return JSON.stringify({
@@ -3052,7 +3195,7 @@ generateReportDetailHtml00(report: Report): string {
 }
 
 
-generateReportDetailHtml(report: Report): string {
+generateReportDetailHtml01(report: Report): string {
   // Parsear los JSON
   const subsueloStats = JSON.parse(report.subsueloStats || '[]');
   const timeStats = JSON.parse(report.timeStats || '{}');
@@ -3327,6 +3470,306 @@ generateReportDetailHtml(report: Report): string {
 </html>
   `;
 }
+
+generateReportDetailHtml(report: Report): string {
+  // Parsear los JSON
+  const subsueloStats = JSON.parse(report.subsueloStats || '[]');
+  const timeStats = JSON.parse(report.timeStats || '{}');
+  let filteredClients: any[] = [];
+  try {
+    filteredClients = JSON.parse(report.filteredClients || '[]');
+  } catch (e) {
+    console.error('Error parsing filteredClients', e);
+  }
+
+  // Fecha del reporte
+  const reportDate = new Date(report.timestamp);
+  const formattedReportDate = reportDate.toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  });
+
+  // Calcular tiempo transcurrido e ingreso bonito
+  const now = Date.now();
+  filteredClients = filteredClients.map((client: any) => {
+    let elapsedTime = 'N/A';
+    let formattedStart = '-';
+
+    if (client.entryTimestamp && typeof client.entryTimestamp === 'number') {
+      const start = client.entryTimestamp;
+      const ms = now - start;
+      const mins = Math.floor(ms / 60000);
+      const hours = Math.floor(mins / 60);
+      const min = mins % 60;
+      elapsedTime = hours > 0 ? `${hours}h ${min}m` : `${min}m`;
+
+      const date = new Date(start);
+      formattedStart = date.toLocaleDateString('es-AR', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }) + ' ' + date.toLocaleTimeString('es-AR', {
+        hour: '2-digit',
+        minute: '2-digit'
+      }) + ' hs';
+    }
+
+    return { ...client, elapsedTime, formattedStart };
+  });
+
+  // TOTAL COBRADO DEL DÍA
+  const totalCobrado = filteredClients.reduce((sum: number, client: any) => {
+    return sum + (client.price || 0);
+  }, 0);
+
+  // PROMEDIO POR SERVICIO
+  const promedioServicio = filteredClients.length > 0
+    ? Math.round(totalCobrado / filteredClients.length)
+    : 0;
+
+  // MÉTODOS DE PAGO
+  const paymentStats = { efectivo: 0, credito: 0, prepago: 0, qr: 0, otros: 0 };
+  filteredClients.forEach((client: any) => {
+    const method = (client.paymentMethod || 'otros').toLowerCase();
+    if (method in paymentStats) {
+      paymentStats[method as keyof typeof paymentStats]++;
+    } else {
+      paymentStats.otros++;
+    }
+  });
+
+  const totalClients = filteredClients.length;
+  const efectivoPct = totalClients > 0 ? Math.round((paymentStats.efectivo / totalClients) * 100) : 0;
+  const creditoPct = totalClients > 0 ? Math.round((paymentStats.credito / totalClients) * 100) : 0;
+  const prepagoPct = totalClients > 0 ? Math.round((paymentStats.prepago / totalClients) * 100) : 0;
+  const qrPct = totalClients > 0 ? Math.round((paymentStats.qr / totalClients) * 100) : 0;
+  const otrosPct = totalClients > 0 ? Math.round((paymentStats.otros / totalClients) * 100) : 0;
+
+  return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detalle Reporte ID ${report.id} - Exellsior</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { font-family: Arial, sans-serif; background: #0f172a; color: #e2e8f0; margin: 20px; }
+    h1 { color: #0ea5e9; text-align: center; }
+    h2 { color: #0ea5e9; margin-bottom: 20px; }
+    .section { margin-bottom: 30px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .stat-card { background: #1e293b; padding: 15px; border-radius: 8px; text-align: center; border-left: 4px solid #0ea5e9; }
+    .stat-number { font-size: 2em; font-weight: bold; color: #0ea5e9; }
+    .total-cobrado { border-left-color: #10b981 !important; }
+    .total-number { color: #10b981 !important; font-size: 2.5em !important; }
+    table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 8px; overflow: hidden; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+    th { background: #16213e; font-weight: bold; color: #0ea5e9; }
+    tr:hover { background: #2d446a; }
+    .progress { background: #374151; border-radius: 4px; height: 20px; overflow: hidden; }
+    .progress-bar { height: 100%; line-height: 20px; text-align: center; font-size: 0.875em; }
+    .time-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; }
+    .time-card { background: #1e293b; padding: 15px; border-radius: 8px; text-align: center; border-left: 4px solid #0ea5e9; }
+    .time-number { font-size: 1.5em; font-weight: bold; }
+    .no-data { text-align: center; color: #94a3b8; padding: 40px; }
+  </style>
+</head>
+<body>
+  <h1>Detalle Reporte ID ${report.id} - ${new Date(report.timestamp).toLocaleString()}</h1>
+
+  <div class="container-fluid px-4">
+    <!-- Resumen General (igual que tu pantalla principal) -->
+    <div class="section">
+      <h2>Resumen General</h2>
+      <div class="stats">
+        <!-- Total Cobrado Hoy -->
+        <div class="stat-card total-cobrado">
+          <div class="stat-number total-number">$${totalCobrado.toLocaleString('es-AR')}</div>
+          <div>Total Cobrado Hoy</div>
+        </div>
+           <div class="stat-card">
+          <div class="stat-number">${report.totalSpaces}</div>
+          <div>Total Espacios</div>
+        </div>
+
+
+
+        <!-- Ocupados Ahora -->
+        <div class="stat-card">
+          <div class="stat-number text-success">${report.occupiedSpaces}</div>
+          <div>Ocupados Ahora</div>
+        </div>
+
+        <!-- Libres -->
+        <div class="stat-card">
+          <div class="stat-number text-info">${report.freeSpaces}</div>
+          <div>Libres</div>
+        </div>
+
+        <!-- Ocupación Actual -->
+        <div class="stat-card">
+          <div class="stat-number text-warning">${report.occupancyRate}%</div>
+          <div>Ocupación Actual</div>
+        </div>
+
+          <!-- Servicios del Día -->
+        <div class="stat-card">
+          <div class="stat-number text-primary">${filteredClients.length}</div>
+          <div>Servicios del Día</div>
+        </div>
+
+        <!-- Promedio por Servicio -->
+        <div class="stat-card">
+          <div class="stat-number text-info">$${promedioServicio.toLocaleString('es-AR')}</div>
+          <div>Promedio por Servicio</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detalle por Subsuelo -->
+    <div class="section">
+      <h2>Detalle por Subsuelo</h2>
+      <table class="table table-dark table-striped">
+        <thead>
+          <tr>
+            <th>Subsuelo</th>
+            <th>Total</th>
+            <th>Ocupados</th>
+            <th>Libres</th>
+            <th>% Ocupación</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${subsueloStats.length > 0 ? subsueloStats.map((stat: any) => `
+            <tr>
+              <td>${stat.label}</td>
+              <td>${stat.total}</td>
+              <td><span class="badge bg-danger">${stat.occupied}</span></td>
+              <td><span class="badge bg-success">${stat.free}</span></td>
+              <td>
+                <div class="progress">
+                  <div class="progress-bar bg-${stat.occupancyRate < 50 ? 'success' : stat.occupancyRate < 80 ? 'warning' : 'danger'}" style="width: ${stat.occupancyRate}%">
+                    ${stat.occupancyRate}%
+                  </div>
+                </div>
+              </td>
+            </tr>
+          `).join('') : '<tr><td colspan="5" class="no-data">No hay datos de subsuelos</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Métodos de Pago -->
+    <div class="section">
+      <h2>Métodos de Pago</h2>
+      <div class="time-stats">
+        <div class="time-card" style="border-left-color: #10b981;">
+          <div class="time-number" style="color: #10b981;">${efectivoPct}%</div>
+          <div>Efectivo (${paymentStats.efectivo})</div>
+        </div>
+        <div class="time-card" style="border-left-color: #f59e0b;">
+          <div class="time-number" style="color: #f59e0b;">${creditoPct}%</div>
+          <div>Crédito (${paymentStats.credito})</div>
+        </div>
+        <div class="time-card" style="border-left-color: #3b82f6;">
+          <div class="time-number" style="color: #3b82f6;">${prepagoPct}%</div>
+          <div>Prepago (${paymentStats.prepago})</div>
+        </div>
+        <div class="time-card" style="border-left-color: #a855f7;">
+          <div class="time-number" style="color: #a855f7;">${qrPct}%</div>
+          <div>QR (${paymentStats.qr})</div>
+        </div>
+        ${otrosPct > 0 ? `
+        <div class="time-card" style="border-left-color: #94a3b8;">
+          <div class="time-number" style="color: #94a3b8;">${otrosPct}%</div>
+          <div>Sin especificar (${paymentStats.otros})</div>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+
+    <!-- Distribución por Tiempo -->
+    <div class="section">
+      <h2>Tiempo de Ocupación</h2>
+      <div class="time-stats">
+        <div class="time-card">
+          <div class="time-number" style="color: #10b981;">${timeStats.under1h || 0}</div>
+          <div>Menos de 1h</div>
+        </div>
+        <div class="time-card">
+          <div class="time-number" style="color: #f59e0b;">${timeStats.between1h3h || 0}</div>
+          <div>1h - 3h</div>
+        </div>
+        <div class="time-card">
+          <div class="time-number" style="color: #ef4444;">${timeStats.over3h || 0}</div>
+          <div>Más de 3h</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Servicios del día -->
+    <div class="section">
+      <h2>Servicios del día ${formattedReportDate} (${filteredClients.length})</h2>
+      ${filteredClients.length > 0 ? `
+        <table class="table table-dark table-striped">
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Cliente</th>
+              <th>Espacio</th>
+              <th>Teléfono</th>
+              <th>Vehículo</th>
+              <th>Categoría</th>
+              <th>Precio</th>
+              <th>Método Pago</th>
+              <th>Clover</th>
+              <th>Ingreso</th>
+              <th>Tiempo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredClients.map((client: any) => `
+              <tr>
+                <td><span style="background: #1e293b; padding: 2px 6px; border-radius: 4px; font-family: monospace;">${client.code || '-'}</span></td>
+                <td>${client.name}</td>
+                <td style="color: #3b82f6;">${client.spaceDisplayName || client.spaceKey || '-'}</td>
+                <td>+${client.phoneIntl}</td>
+                <td>${client.vehicle || '-'}</td>
+                <td>
+                  <span class="badge bg-${client.category === 'SUV' ? 'primary' : client.category === 'AUTO' ? 'success' : client.category === 'PICKUP' ? 'warning' : client.category === 'ALTO PORTE' ? 'danger' : 'secondary'}">
+                    ${client.category || 'Sin categoría'}
+                  </span>
+                </td>
+                <td style="color: #10b981; font-weight: bold;">
+                  $${client.price ? client.price.toLocaleString('es-AR') : 'Pendiente'}
+                </td>
+                <td>
+                  <span class="badge bg-light text-dark">${client.paymentMethod || '-'}</span>
+                </td>
+                <td>
+                  <strong>${client.clover ? client.clover.toString().padStart(4, '0') : '-'}</strong>
+                </td>
+                <td>${client.formattedStart}</td>
+                <td style="color: #f59e0b; font-weight: bold;">${client.elapsedTime}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : '<div class="no-data">No hay clientes en este reporte</div>'}
+    </div>
+  </div>
+
+  <script>
+    window.onload = function() { window.print(); };
+  </script>
+</body>
+</html>
+  `;
+}
+
 
 
 }

@@ -6,6 +6,9 @@
 
     <!-- Estadísticas Generales -->
     <div class="row g-3 mb-4">
+
+
+
       <div class="col-md-3">
         <div class="card stats-card">
           <div class="card-body text-center">
@@ -14,11 +17,12 @@
           </div>
         </div>
       </div>
-      <div class="col-md-3">
+
+        <div class="col-md-3">
         <div class="card stats-card">
           <div class="card-body text-center">
             <div class="stats-number text-success">{{occupiedSpaces}}</div>
-            <div class="stats-label">Ocupados</div>
+            <div class="stats-label">Ocupados Ahora</div>
           </div>
         </div>
       </div>
@@ -30,14 +34,46 @@
           </div>
         </div>
       </div>
-      <div class="col-md-3">
+
+        <div class="col-md-3">
         <div class="card stats-card">
           <div class="card-body text-center">
             <div class="stats-number text-warning">{{occupancyRate}}%</div>
-            <div class="stats-label">Ocupación</div>
+            <div class="stats-label">Ocupación Actual</div>
           </div>
         </div>
       </div>
+
+      <div class="col-md-3">
+    <div class="card stats-card">
+      <div class="card-body text-center">
+        <div class="stats-number text-primary">{{dailyClients.length}}</div>
+        <div class="stats-label">Servicios del Día</div>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="col-md-3">
+    <div class="card stats-card">
+      <div class="card-body text-center">
+        <div class="stats-number text-success">${{dailyTotalCobrado.toLocaleString('es-AR')}}</div>
+        <div class="stats-label">Total Cobrado Hoy</div>
+      </div>
+    </div>
+  </div>
+
+
+      <!--div-- class="col-md-3">
+    <div class="card stats-card">
+      <div class="card-body text-center">
+        <div class="stats-number text-info">
+          ${{getAverageServicePrice().toLocaleString('es-AR')}}
+        </div>
+        <div class="stats-label">Promedio por Servicio</div>
+      </div>
+    </div>
+  </!--div-->
     </div>
 
     <!-- Por Subsuelo -->
@@ -82,11 +118,13 @@
     </div>
 
 
+
+
 <div class="card mb-4">
   <div class="card-body">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <!--h5-- class="card-title mb-0">Servicios del día ({{filteredClients.length}})</!--h5-->
-      <h5 class="card-title mb-0">Servicios del día {{todayDate()}} ({{todaysClients.length}})</h5>
+      <h5 class="card-title mb-0">Servicios del día {{todayDate()}} ({{dailyClients.length}})</h5>
       <div class="input-group" style="width: 300px;">
         <input type="text" class="form-control" placeholder="Buscar cliente..." [(ngModel)]="searchTerm" (input)="onSearchClients()">
       </div>
@@ -108,7 +146,7 @@
         </thead>
         <tbody>
           <!--tr *ngFor="let client of paginatedClients"-->
-            <tr *ngFor="let client of paginatedTodaysClients">
+            <tr *ngFor="let client of paginatedDailyClients">
             <td>
               <span class="code-badge">{{client.code}}</span>
             </td>
@@ -134,7 +172,8 @@
               <strong class="text-success">${{client.price ? client.price.toLocaleString() : 'Pendiente'}}</strong>
             </td>
             <td>
-              <span class="text-warning">{{getElapsedTime(client.spaceKey)}}</span>
+              <!--span class="text-warning">{{getElapsedTime(client.spaceKey)}}</span-->
+              <span class="text-warning">{{getElapsedTimeForClient(client)}}</span>
             </td>
             <td>
               <button class="btn btn-sm btn-outline-warning" type="button" (click)="openEditClient(client)">
@@ -144,7 +183,7 @@
           </tr>
         </tbody>
       </table>
-      <nav aria-label="Paginación de clientes">
+      <!--nav-- aria-label="Paginación de clientes">
         <ul class="pagination justify-content-center cursor-pointer">
           <li class="page-item" [class.disabled]="currentPage === 1">
             <a class="page-link" (click)="setPage(currentPage - 1)">Previous</a>
@@ -156,7 +195,21 @@
             <a class="page-link" (click)="setPage(currentPage + 1)">Next</a>
           </li>
         </ul>
-      </nav>
+      </!--nav-->
+
+      <nav aria-label="Paginación de clientes">
+  <ul class="pagination justify-content-center cursor-pointer">
+    <li class="page-item" [class.disabled]="currentPageDaily === 1">
+      <a class="page-link" (click)="setPageDaily(currentPageDaily - 1)">Previous</a>
+    </li>
+    <li class="page-item" *ngFor="let page of pageNumbersDaily" [class.active]="page === currentPageDaily">
+      <a class="page-link" (click)="setPageDaily(page)">{{page}}</a>
+    </li>
+    <li class="page-item" [class.disabled]="currentPageDaily === totalPagesDaily">
+      <a class="page-link" (click)="setPageDaily(currentPageDaily + 1)">Next</a>
+    </li>
+  </ul>
+</nav>
     </div>
     <div *ngIf="filteredClients.length === 0" class="text-center text-muted py-4">
       No hay clientes actualmente
