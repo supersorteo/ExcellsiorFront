@@ -255,6 +255,30 @@ public dailyClients$ = this.clients$.pipe(
   })
 );
 
+
+public filteredDailyClients$ = combineLatest([
+  this.dailyClients$,
+  this.searchTermSubject
+]).pipe(
+  map(([dailyClients, searchTerm]) => {
+    if (!searchTerm.trim()) {
+      return dailyClients;
+    }
+
+    const term = searchTerm.toLowerCase().trim();
+
+    return dailyClients.filter(client =>
+      (client.name?.toLowerCase().includes(term)) ||
+      (client.code?.toLowerCase().includes(term)) ||
+      (client.phoneIntl?.includes(term)) ||
+      (client.vehicle?.toLowerCase().includes(term)) ||
+      (client.plate?.toLowerCase().includes(term)) ||
+      (client.dni?.includes(term)) ||
+      (client.notes?.toLowerCase().includes(term))
+    );
+  })
+);
+
   constructor(private http: HttpClient) {
    this.loadAll();  // Carga desde localStorage
 

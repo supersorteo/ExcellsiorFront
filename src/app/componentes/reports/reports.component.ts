@@ -66,6 +66,8 @@ pageSizeDaily = 5;
   pageSize = 5;
   currentPage = 1;
   currentClients!: Client[];
+  editClientHeaderMessage = '';
+  private editClientHeaderTimer: any = null;
 
   private API_BASE = 'http://localhost:8080/api'
   //private API_BASE = 'https://excellsiorback-production.up.railway.app/api'
@@ -87,6 +89,7 @@ Math: any;
       this.autolavadoService.clients$,
       //this.autolavadoService.filteredClients$,
       this.autolavadoService.dailyClients$
+
     ]).pipe(takeUntil(this.destroy$))
     .subscribe(([subsuelos, spaces, clients, dailyClients]) => {
       this.subsuelos = subsuelos;
@@ -222,16 +225,6 @@ get pageNumbersToday(): number[] {
   return pages;
 }
 
-get paginatedDailyClients(): Client[] {
-  const start = (this.currentPageDaily - 1) * this.pageSizeDaily;
-  return this.dailyClients.slice(start, start + this.pageSizeDaily);
-}
-
-
-
-get totalPagesDaily(): number {
-  return Math.ceil(this.dailyClients.length / this.pageSizeDaily);
-}
 
 get pageNumbersDaily(): number[] {
   const total = this.totalPagesDaily;
@@ -355,14 +348,26 @@ acceptEditClient1(): void {
       this.calculateStats();
       this.cdr.detectChanges();
 
-      alert('Datos actualizados correctamente');
-      this.closeEditClient();
+      this.showEditClientHeaderMessage('Datos actualizados correctamente');
     },
     error: (err) => {
       console.error('Error', err);
       alert('Error al actualizar');
     }
   });
+}
+
+private showEditClientHeaderMessage(message: string): void {
+  this.editClientHeaderMessage = message;
+  if (this.editClientHeaderTimer) {
+    clearTimeout(this.editClientHeaderTimer);
+  }
+  this.editClientHeaderTimer = setTimeout(() => {
+    this.editClientHeaderMessage = '';
+    this.editClientHeaderTimer = null;
+    this.cdr.detectChanges();
+    this.closeEditClient();
+  }, 3000);
 }
 
 acceptEditClient(): void {
@@ -411,8 +416,7 @@ acceptEditClient(): void {
       this.calculateStats();
       this.cdr.detectChanges();
 
-      alert('Datos actualizados correctamente');
-      this.closeEditClient();
+      this.showEditClientHeaderMessage('Datos actualizados correctamente');
     },
     error: (err) => {
       console.error('Error', err);
@@ -622,15 +626,61 @@ openEditClient(client: Client): void {
     return this.autolavadoService.elapsedFrom(space?.startTime);
   }
 
-  onSearchClients(): void {
+  onSearchClients1(): void {
     this.autolavadoService.setSearchTerm(this.searchTerm);
-    this.currentPage = 1;
+   // this.currentPage = 1;
+    this.currentPageDaily = 1;
   }
+
+  onSearchClients(): void {
+  this.currentPageDaily = 1;  // Reinicia a página 1 al buscar
+}
+
 
   get paginatedClients(): Client[] {
     const start = (this.currentPage - 1) * this.pageSize;
     return this.filteredClients.slice(start, start + this.pageSize);
   }
+
+
+  get filteredDailyClients(): Client[] {
+  if (!this.searchTerm.trim()) {
+    return this.dailyClients;
+  }
+
+  const term = this.searchTerm.toLowerCase();
+  return this.dailyClients.filter(client =>
+    (client.name?.toLowerCase().includes(term)) ||
+    (client.code?.toLowerCase().includes(term)) ||
+    (client.phoneIntl?.includes(term)) ||
+    (client.vehicle?.toLowerCase().includes(term)) ||
+    (client.plate?.toLowerCase().includes(term)) ||
+    (client.dni?.includes(term))
+  );
+}
+
+// NUEVO: paginación basada en los filtrados
+get paginatedDailyClients(): Client[] {
+  const start = (this.currentPageDaily - 1) * this.pageSizeDaily;
+  return this.filteredDailyClients.slice(start, start + this.pageSizeDaily);
+}
+
+get totalPagesDaily(): number {
+  return Math.ceil(this.filteredDailyClients.length / this.pageSizeDaily);
+}
+
+get paginatedDailyClients0(): Client[] {
+  const start = (this.currentPageDaily - 1) * this.pageSizeDaily;
+  return this.dailyClients.slice(start, start + this.pageSizeDaily);
+}
+
+
+
+get totalPagesDaily0(): number {
+  return Math.ceil(this.dailyClients.length / this.pageSizeDaily);
+}
+
+
 
   get totalPages(): number {
     return Math.ceil(this.filteredClients.length / this.pageSize);

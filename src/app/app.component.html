@@ -1,9 +1,111 @@
 
-<div class="container my-4">
+<!--div-- class="container my-4"-->
  <!--div-- class="d-flex align-items-center justify-content-between mb-3">
     <img src="../assets/logo/logo_autolvadao.jpg" alt="Logo Autolavado" class="img-fluid" style="max-height: 50px;">
   </!--div-->
 
+  <!--section>
+    <app-spaces></app-spaces>
+  </!--section>
+  <hr class="my-5">
+  <section>
+    <app-reports></app-reports>
+  </section>
+</!--div-->
+
+<div *ngIf="isCheckingAuth" class="login-backdrop d-flex align-items-center justify-content-center">
+  <div class="text-center text-white">
+    <div class="spinner-border text-primary mb-3" style="width: 4rem; height: 4rem;" role="status">
+      <span class="visually-hidden">Cargando...</span>
+    </div>
+    <h4 class="fw-bold">Verificando sesión...</h4>
+    <p class="opacity-75">Un momento por favor</p>
+  </div>
+</div>
+
+
+<!-- Fondo oscuro cuando no está logueado -->
+<div *ngIf="!isLoggedIn && !isCheckingAuth" class="login-backdrop">
+  <div class="login-modal">
+    <div class="card login-card shadow-lg border-0">
+      <div class="card-body p-5">
+        <h3 class="text-center mb-4 fw-bold">
+          <i class="fas fa-sign-in-alt me-2 text-primary"></i>
+          Bienvenido a Exellsior
+        </h3>
+
+        <!-- Mensaje de error con animación -->
+        <div *ngIf="errorMessage" class="alert alert-danger fade-in">
+          <i class="fas fa-exclamation-circle me-2"></i>
+          {{ errorMessage }}
+        </div>
+
+        <form>
+          <!-- Usuario -->
+          <div class="mb-4">
+            <label class="form-label fw-medium">Usuario</label>
+            <div class="input-group input-group-lg">
+              <span class="input-group-text bg-dark border-dark text-white">
+                <i class="fas fa-user"></i>
+              </span>
+              <input
+                type="text"
+                class="form-control form-control-lg bg-dark text-white border-dark"
+                [(ngModel)]="username"
+                name="username"
+                placeholder="admin"
+                (keyup.enter)="login()"
+                autofocus>
+            </div>
+          </div>
+
+          <!-- Contraseña con ojo -->
+          <div class="mb-4">
+            <label class="form-label fw-medium">Contraseña</label>
+            <div class="input-group input-group-lg">
+              <span class="input-group-text bg-dark border-dark text-white">
+                <i class="fas fa-lock"></i>
+              </span>
+              <input
+                [type]="showPassword ? 'text' : 'password'"
+                class="form-control form-control-lg bg-dark text-white border-dark"
+                [(ngModel)]="password"
+                name="password"
+                placeholder="••••••••"
+                (keyup.enter)="login()">
+              <button
+                class="btn btn-outline-secondary bg-dark border-dark text-white"
+                type="button"
+                (click)="showPassword = !showPassword">
+                <i class="fas" [ngClass]="showPassword ? 'fa-eye-slash' : 'fa-eye'"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Botón de login -->
+          <button
+            class="btn btn-primary btn-lg w-100 fw-bold"
+            type="button"
+            (click)="login()"
+            [disabled]="isLoading">
+            <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2"></span>
+            Iniciar Sesión
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+<!-- Contenido principal -->
+<div [hidden]="!isLoggedIn" class="container my-4">
+ <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Bienvenido, {{username}}</h2>
+    <button class="btn btn-outline-danger" (click)="logout()">Cerrar Sesión</button>
+  </div>
   <section>
     <app-spaces></app-spaces>
   </section>
